@@ -27,6 +27,10 @@ def get_openai_api_key():
         return None
     return key
 
+def use_stored_prompt():
+    raw_value = (os.getenv("OPENAI_USE_STORED_PROMPT", "false") or "").strip().lower()
+    return raw_value in ("1", "true", "yes", "on")
+
 # -------------------------------------------------------------
 # Web Search Utility (DuckDuckGo HTML Parser)
 # -------------------------------------------------------------
@@ -157,28 +161,48 @@ def execute_real_ai_analysis(lead):
         
     # 2. Call OpenAI API
     system_prompt = """
-Você é um consultor comercial de alta performance especializado em venda de websites para empresas locais.
-Sua tarefa é analisar os resultados de pesquisa na web para uma determinada empresa local e preencher um relatório de diagnóstico no formato JSON especificado.
+Você é o verificador de qualidade de lead do Radar Local IA.
+Sua tarefa é analisar apenas os sinais públicos fornecidos e montar um laudo técnico de confiabilidade do lead.
 
 IMPORTANTE:
-- Responda EXCLUSIVAMENTE em formato JSON válido. Não inclua qualquer texto explicativo fora do bloco JSON.
-- Não invente informações. Se não encontrar evidências da empresa ou de seu site, use "incerto" ou "nao_encontrado" nos campos correspondentes.
-- A mensagem de WhatsApp deve ser amigável, iniciar uma conversa de forma natural, focar no principal problema comercial encontrado e sugerir uma melhoria sem parecer spam ou texto automático. Use "você".
+- Responda EXCLUSIVAMENTE em JSON válido.
+- Não invente dados. Se faltar evidência, use "incerto".
+- Não afirme posse do número com certeza absoluta; use "compatível", "divergente" ou "incerto".
+- Seja objetivo e curto.
 
-O esquema do JSON de resposta deve ser exatamente:
+Retorne exatamente este formato:
 {
   "empresa_existe": "sim" | "nao" | "incerto",
+  "sinais_atividade": "alto" | "medio" | "baixo" | "incerto",
+  "status_provavel": "ativa" | "incerta" | "possivel_inativa",
+  "confianca_verificacao": 0-100,
+  "whatsapp_numero_informado": "texto",
+  "whatsapp_numero_instagram": "texto",
+  "whatsapp_numero_site": "texto",
+  "whatsapp_numero_wa_me": "texto",
+  "compatibilidade_whatsapp": "compativel" | "divergente" | "incerto",
+  "confianca_whatsapp": "alta" | "media" | "baixa",
+  "observacao_whatsapp": "explicacao objetiva",
+  "instagram_encontrado": "sim" | "nao" | "incerto",
+  "instagram_bio_tem_link": "sim" | "nao" | "incerto",
+  "instagram_tipo_link_bio": "dominio_proprio" | "linktree_ou_similar" | "whatsapp_direto" | "google_sites" | "canva_site" | "wix_ou_similar" | "cardapio_online_terceirizado" | "nao_identificado",
+  "instagram_observacao_oportunidade": "texto curto",
   "site_encontrado": "sim" | "nao" | "incerto",
-  "tipo_site": "proprio" | "generico" | "rede_social" | "nao_encontrado" | "incerto",
-  "presenca_digital": "fraca" | "media" | "boa" | "incerta",
+  "tipo_site": "site_proprio" | "site_terceirizado" | "rede_social" | "cardapio_plataforma_externa" | "nao_encontrado" | "incerto",
+  "qualidade_site": "boa" | "media" | "fraca" | "ausente" | "incerta",
+  "motivo_qualidade_site": "texto curto",
+  "lead_aprovado_abordagem": "sim" | "nao" | "com_ressalvas",
+  "prioridade": "baixa" | "media" | "alta",
+  "score": 0-100,
+  "motivo_prioridade": "texto curto",
   "potencial": "baixo" | "medio" | "alto",
-  "score": 0-100 (número representando urgência e oportunidade de venda de site, onde 100 é máxima urgência/oportunidade),
-  "diagnostico": "diagnóstico comercial muito curto e objetivo (máximo 2 frases)",
-  "problema_detectado": "principal falha ou problema detectado (ex: site lento, sem site próprio, link quebrado, ausência de botão para whatsapp)",
-  "oferta_recomendada": "site institucional, landing page de alta conversão, página de agendamento, cardápio online ou vitrine digital",
-  "preco_sugerido": "ex: R$ 1.500 a R$ 2.500",
-  "mensagem_whatsapp": "mensagem curta, personalizada e persuasiva para envio no whatsapp iniciando a conversa sem parecer robô",
-  "fontes": ["lista de links ou nomes de fontes encontradas nos resultados da pesquisa"]
+  "diagnostico": "resumo curto do laudo",
+  "problema_detectado": "principal risco ou falha detectada",
+  "oferta_recomendada": "oferta indicada",
+  "preco_sugerido": "faixa estimada",
+  "mensagem_whatsapp": "mensagem curta de abordagem",
+  "proximo_passo": "passo objetivo",
+  "fontes": ["lista de links/fontes públicas usadas"]
 }
 """
 
@@ -197,31 +221,145 @@ Resultados da pesquisa na Web (DuckDuckGo):
 Por favor, faça a análise com base estritamente nos resultados de busca fornecidos. Retorne apenas o JSON correspondente.
 """
 
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content}
-        ],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.2
-    }
-    
-    try:
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
+    def build_default_analysis_payload():
+        return {
+            "empresa_existe": "",
+            "sinais_atividade": "",
+            "status_provavel": "",
+            "confianca_verificacao": 0,
+            "whatsapp_numero_informado": "",
+            "whatsapp_numero_instagram": "",
+            "whatsapp_numero_site": "",
+            "whatsapp_numero_wa_me": "",
+            "compatibilidade_whatsapp": "",
+            "confianca_whatsapp": "",
+            "observacao_whatsapp": "",
+            "instagram_encontrado": "",
+            "instagram_bio_tem_link": "",
+            "instagram_tipo_link_bio": "",
+            "instagram_observacao_oportunidade": "",
+            "site_encontrado": "",
+            "tipo_site": "",
+            "qualidade_site": "",
+            "motivo_qualidade_site": "",
+            "presenca_digital": "",
+            "lead_aprovado_abordagem": "",
+            "prioridade": "",
+            "potencial": "",
+            "score": 0,
+            "motivo_prioridade": "",
+            "diagnostico": "",
+            "problema_detectado": "",
+            "oferta_recomendada": "",
+            "preco_sugerido": "",
+            "mensagem_whatsapp": "",
+            "proximo_passo": "",
+            "fontes": []
         }
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+    def coerce_analysis_payload(data):
+        payload = build_default_analysis_payload()
+        if isinstance(data, dict):
+            payload.update(data)
+        if not isinstance(payload.get("fontes"), list):
+            payload["fontes"] = []
+        try:
+            payload["score"] = int(payload.get("score", 0) or 0)
+        except Exception:
+            payload["score"] = 0
+        try:
+            payload["confianca_verificacao"] = int(payload.get("confianca_verificacao", 0) or 0)
+        except Exception:
+            payload["confianca_verificacao"] = 0
+        return payload
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
         
-        with urllib.request.urlopen(req, timeout=25) as response:
-            res_data = response.read().decode("utf-8")
-            openai_res = json.loads(res_data)
-            
-        content_str = openai_res["choices"][0]["message"]["content"].strip()
-        analysis_data = json.loads(content_str)
+        prompt_id = "pmpt_6a17c2a9df788193aad2e365367eff020ad4c95ecb1cc77f"
+        prompt_version = "2"
+        variables = {
+            "nome_empresa": lead.get("nome") or lead.get("nome_empresa") or "",
+            "cidade": lead.get("cidade") or "",
+            "nicho": lead.get("nicho") or "",
+            "site": lead.get("site") or "não informado",
+            "instagram": lead.get("instagram") or "não informado",
+            "telefone": lead.get("telefone") or lead.get("telefone_whatsapp") or "não informado"
+        }
+        
+        # Log before the call
+        print("--------------------------------------------------", flush=True)
+        print("[OPENAI CALL] Iniciando chamada de IA", flush=True)
+        print(f"Lead analisado: {nome or 'sem nome'}", flush=True)
+        print(f"Prompt ID: {prompt_id}", flush=True)
+        print(f"Prompt Version: {prompt_version}", flush=True)
+        print(f"Variáveis enviadas: {json.dumps(variables, indent=2, ensure_ascii=False)}", flush=True)
+        print(f"OPENAI_USE_STORED_PROMPT: {use_stored_prompt()}", flush=True)
+        print("--------------------------------------------------", flush=True)
+
+        content_str = ""
+        if use_stored_prompt():
+            try:
+                response = client.responses.create(
+                    prompt={
+                        "id": prompt_id,
+                        "version": prompt_version,
+                        "variables": variables
+                    }
+                )
+                content_str = (response.output_text or "").strip()
+                print("[OPENAI SUCCESS] Chamada do Stored Prompt executada com sucesso.", flush=True)
+            except Exception as stored_prompt_err:
+                # Log the complete error if Stored Prompt call fails
+                print("--------------------------------------------------", flush=True)
+                print("[OPENAI ERROR] Falha completa na chamada com Stored Prompt:", flush=True)
+                import traceback
+                traceback.print_exc()
+                print("--------------------------------------------------", flush=True)
+
+                err_msg = str(stored_prompt_err or "").lower()
+                variable_error = (
+                    "unknown prompt variables" in err_msg
+                    or "prompt variables" in err_msg
+                    or "variable" in err_msg
+                )
+
+                if variable_error:
+                    print("[FALLBACK] Erro de variável no Stored Prompt detectado. Executando fallback com input direto em responses.create().", flush=True)
+                else:
+                    print("[FALLBACK] Stored Prompt falhou por outro motivo. Executando fallback com input direto em responses.create().", flush=True)
+        else:
+            print("[OPENAI MODE] Stored Prompt desativado por configuração. Usando input direto.", flush=True)
+
+        if not content_str:
+            fallback_response = client.responses.create(
+                model="gpt-4o-mini",
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content}
+                ],
+                text={
+                    "format": {
+                        "type": "json_object"
+                    }
+                },
+                temperature=0.2
+            )
+            content_str = (fallback_response.output_text or "").strip()
+            print("[FALLBACK SUCCESS] Chamada direta executada com sucesso.", flush=True)
+        
+        try:
+            analysis_data = json.loads(content_str)
+        except Exception as parse_err:
+            print(f"[ERROR] Erro ao parsear JSON retornado pela OpenAI: {parse_err}")
+            print(f"[RAW OUTPUT] {content_str}")
+            return {
+                "ok": False,
+                "message": "Erro ao processar o diagnóstico gerado pela inteligência artificial. O formato retornado é inválido."
+            }
+
+        analysis_data = coerce_analysis_payload(analysis_data)
         
         # Merge search sources if not returned by OpenAI
         if not analysis_data.get("fontes") and sources:
@@ -231,18 +369,9 @@ Por favor, faça a análise com base estritamente nos resultados de busca fornec
             "ok": True,
             "data": analysis_data
         }
-    except urllib.error.HTTPError as he:
-        try:
-            error_details = json.loads(he.read().decode("utf-8"))
-            err_msg = error_details.get("error", {}).get("message", str(he))
-        except Exception:
-            err_msg = str(he)
-        return {
-            "ok": False,
-            "message": f"Erro na API da OpenAI: {err_msg}"
-        }
     except Exception as e:
+        print(f"[CRITICAL ERROR] Erro crítico no serviço de IA: {str(e)}")
         return {
             "ok": False,
-            "message": f"Erro inesperado no processamento: {str(e)}"
+            "message": f"Erro inesperado no serviço de IA: {str(e)}"
         }

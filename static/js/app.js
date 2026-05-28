@@ -498,19 +498,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const realAiLeadName = document.getElementById("realAiLeadName");
     const realAiDate = document.getElementById("realAiDate");
     const realAiScore = document.getElementById("realAiScore");
+    const realAiBadges = document.getElementById("realAiBadges");
     const realAiExiste = document.getElementById("realAiExiste");
+    const realAiAtividade = document.getElementById("realAiAtividade");
+    const realAiStatusProvavel = document.getElementById("realAiStatusProvavel");
+    const realAiConfianca = document.getElementById("realAiConfianca");
+    const realAiWhatsLead = document.getElementById("realAiWhatsLead");
+    const realAiWhatsInsta = document.getElementById("realAiWhatsInsta");
+    const realAiWhatsSite = document.getElementById("realAiWhatsSite");
+    const realAiWhatsWaMe = document.getElementById("realAiWhatsWaMe");
+    const realAiWhatsCompat = document.getElementById("realAiWhatsCompat");
+    const realAiWhatsConfianca = document.getElementById("realAiWhatsConfianca");
+    const realAiWhatsObs = document.getElementById("realAiWhatsObs");
+    const realAiInstagramEncontrado = document.getElementById("realAiInstagramEncontrado");
+    const realAiInstagramLink = document.getElementById("realAiInstagramLink");
+    const realAiInstagramTipoLink = document.getElementById("realAiInstagramTipoLink");
+    const realAiInstagramObs = document.getElementById("realAiInstagramObs");
     const realAiSiteEncontrado = document.getElementById("realAiSiteEncontrado");
     const realAiTipoSite = document.getElementById("realAiTipoSite");
-    const realAiPresenca = document.getElementById("realAiPresenca");
+    const realAiQualidadeSite = document.getElementById("realAiQualidadeSite");
+    const realAiMotivoSite = document.getElementById("realAiMotivoSite");
     const realAiReasonText = document.getElementById("realAiReasonText");
     const realAiProblema = document.getElementById("realAiProblema");
     const realAiOferta = document.getElementById("realAiOferta");
     const realAiPreco = document.getElementById("realAiPreco");
+    const realAiAprovado = document.getElementById("realAiAprovado");
+    const realAiPrioridade = document.getElementById("realAiPrioridade");
+    const realAiMotivoPrioridade = document.getElementById("realAiMotivoPrioridade");
+    const realAiProximoPasso = document.getElementById("realAiProximoPasso");
     const realAiPotentialBadge = document.getElementById("realAiPotentialBadge");
     const realAiMessageText = document.getElementById("realAiMessageText");
     
+    const copyRealAiSummaryBtn = document.getElementById("copyRealAiSummary");
     const copyRealAiMessageBtn = document.getElementById("copyRealAiMessage");
-    const sendRealAiWhatsappBtn = document.getElementById("sendRealAiWhatsapp");
     const realAiSourcesSection = document.getElementById("realAiSourcesSection");
     const realAiSourcesList = document.getElementById("realAiSourcesList");
     const reanalyzeRealAiBtn = document.getElementById("reanalyzeRealAiBtn");
@@ -626,38 +646,47 @@ document.addEventListener("DOMContentLoaded", () => {
         realAiDate.textContent = `Analisado em: ${result.analisado_em || 'Recente'}`;
         realAiScore.textContent = `${result.score || 0}/100`;
 
-        // 4 metrics grid
         realAiExiste.textContent = capitalizeFirstLetter(data.empresa_existe || "incerto");
+        realAiAtividade.textContent = capitalizeFirstLetter(data.sinais_atividade || "incerto");
+        realAiStatusProvavel.textContent = capitalizeFirstLetter((data.status_provavel || "incerta").replaceAll("_", " "));
+        realAiConfianca.textContent = `${Number(data.confianca_verificacao || 0)}/100`;
+
+        realAiWhatsLead.textContent = data.whatsapp_numero_informado || card.dataset.telefone || "não informado";
+        realAiWhatsInsta.textContent = data.whatsapp_numero_instagram || "não identificado";
+        realAiWhatsSite.textContent = data.whatsapp_numero_site || "não identificado";
+        realAiWhatsWaMe.textContent = data.whatsapp_numero_wa_me || "não identificado";
+        realAiWhatsCompat.textContent = capitalizeFirstLetter((data.compatibilidade_whatsapp || "incerto").replaceAll("_", " "));
+        realAiWhatsConfianca.textContent = capitalizeFirstLetter(data.confianca_whatsapp || "baixa");
+        realAiWhatsObs.textContent = data.observacao_whatsapp || "Sem observação específica para WhatsApp.";
+
+        realAiInstagramEncontrado.textContent = capitalizeFirstLetter(data.instagram_encontrado || "incerto");
+        realAiInstagramLink.textContent = capitalizeFirstLetter(data.instagram_bio_tem_link || "incerto");
+        realAiInstagramTipoLink.textContent = formatInstagramLinkType(data.instagram_tipo_link_bio || "nao_identificado");
+        realAiInstagramObs.textContent = data.instagram_observacao_oportunidade || "Sem observação específica para Instagram.";
+
         realAiSiteEncontrado.textContent = capitalizeFirstLetter(data.site_encontrado || "incerto");
         realAiTipoSite.textContent = formatSiteType(data.tipo_site || "incerto");
-        realAiPresenca.textContent = capitalizeFirstLetter(data.presenca_digital || "incerto");
+        realAiQualidadeSite.textContent = capitalizeFirstLetter(data.qualidade_site || "incerta");
+        realAiMotivoSite.textContent = data.motivo_qualidade_site || "Sem evidências suficientes para classificar o site com confiança.";
 
         // Sections
         realAiReasonText.textContent = data.diagnostico || "Sem diagnóstico disponível.";
         realAiProblema.textContent = data.problema_detectado || "Nenhum detectado.";
         realAiOferta.textContent = data.oferta_recomendada || "Nenhuma sugestão.";
         realAiPreco.textContent = data.preco_sugerido || "Sob consulta";
+        realAiAprovado.textContent = capitalizeFirstLetter((data.lead_aprovado_abordagem || "com_ressalvas").replaceAll("_", " "));
+        realAiPrioridade.textContent = capitalizeFirstLetter(data.prioridade || "media");
+        realAiMotivoPrioridade.textContent = data.motivo_prioridade || "Prioridade definida por sinais públicos de presença digital e consistência de contato.";
+        realAiProximoPasso.textContent = data.proximo_passo || "Validar abordagem com mensagem curta e confirmar o canal mais confiável.";
 
         // Potential Badge
         const potencial = result.potencial || "baixo";
         realAiPotentialBadge.textContent = `Potencial ${capitalizeFirstLetter(potencial)}`;
         realAiPotentialBadge.className = `potential-badge ${priorityClass(potencial)}`;
+        renderLaudoBadges(data);
 
         // Message
         realAiMessageText.value = data.mensagem_whatsapp || "";
-
-        // WhatsApp trigger configuration
-        const tel = card.dataset.telefone || "";
-        if (sendRealAiWhatsappBtn) {
-            if (tel) {
-                // Remove non-digit chars
-                const cleanPhone = tel.replace(/\D/g, "");
-                sendRealAiWhatsappBtn.setAttribute("href", `https://wa.me/${cleanPhone}?text=${encodeURIComponent(data.mensagem_whatsapp || "")}`);
-                sendRealAiWhatsappBtn.style.display = "inline-flex";
-            } else {
-                sendRealAiWhatsappBtn.style.display = "none";
-            }
-        }
 
         // Sources List
         realAiSourcesList.innerHTML = "";
@@ -684,7 +713,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update "Pesquisar com IA real" button text
         const realBtn = card.querySelector(".run-real-ai-btn");
         if (realBtn) {
-            realBtn.textContent = "🌐 Ver IA Real";
+            realBtn.textContent = "📋 Ver laudo do lead";
         }
 
         // Set Real AI Analyzed Badge in header
@@ -713,7 +742,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Update preview description box
-        const truncatedMotivo = result.data.diagnostico.length > 140 ? result.data.diagnostico.slice(0, 137) + "..." : result.data.diagnostico;
+        const diagText = result.data.diagnostico || "Laudo concluído com foco em verificação de qualidade do lead.";
+        const truncatedMotivo = diagText.length > 140 ? diagText.slice(0, 137) + "..." : diagText;
         const diagnosisParagraph = card.querySelector(".diagnosis");
         let aiPreview = card.querySelector(".ai-preview-box");
         
@@ -728,7 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         aiPreview.innerHTML = `
-            <span class="ai-box-title" style="color: #c084fc;">🌐 Insight da IA Real:</span>
+            <span class="ai-box-title" style="color: #c084fc;">📋 Laudo de Verificação:</span>
             <p class="ai-box-motivo" style="color: #f3e8ff;">${truncatedMotivo}</p>
         `;
     }
@@ -771,6 +801,21 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    if (copyRealAiSummaryBtn) {
+        copyRealAiSummaryBtn.addEventListener("click", async () => {
+            const originalText = copyRealAiSummaryBtn.textContent;
+            const summary = buildLaudoSummary();
+            try {
+                await navigator.clipboard.writeText(summary);
+                copyRealAiSummaryBtn.textContent = "📋 Resumo copiado!";
+                setTimeout(() => copyRealAiSummaryBtn.textContent = originalText, 1600);
+            } catch (error) {
+                copyRealAiSummaryBtn.textContent = "Erro ao copiar";
+                setTimeout(() => copyRealAiSummaryBtn.textContent = originalText, 1600);
+            }
+        });
+    }
+
     // Helper formatting functions
     function capitalizeFirstLetter(string) {
         if (!string) return "";
@@ -779,13 +824,67 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function formatSiteType(type) {
         const types = {
-            "proprio": "Site Próprio",
-            "generico": "Site Genérico",
-            "rede_social": "Apenas Redes Sociais",
+            "proprio": "Site próprio",
+            "site_proprio": "Site próprio",
+            "generico": "Site terceirizado",
+            "site_terceirizado": "Site terceirizado",
+            "cardapio_plataforma_externa": "Cardápio/plataforma externa",
             "nao_encontrado": "Não Encontrado",
-            "incerto": "Incerto"
+            "incerto": "Incerto",
+            "rede_social": "Rede social"
         };
         return types[type] || capitalizeFirstLetter(type);
+    }
+
+    function formatInstagramLinkType(type) {
+        const types = {
+            "dominio_proprio": "Domínio próprio",
+            "linktree_ou_similar": "Linktree/Beacons/similar",
+            "whatsapp_direto": "WhatsApp direto",
+            "google_sites": "Google Sites",
+            "canva_site": "Canva site",
+            "wix_ou_similar": "Wix ou similar",
+            "cardapio_online_terceirizado": "Cardápio online terceirizado",
+            "nao_identificado": "Não identificado"
+        };
+        return types[type] || capitalizeFirstLetter(String(type || "").replaceAll("_", " "));
+    }
+
+    function renderLaudoBadges(data) {
+        if (!realAiBadges) return;
+        const badges = [];
+        const compat = String(data.compatibilidade_whatsapp || "incerto").toLowerCase();
+        const tipoSite = String(data.tipo_site || "incerto").toLowerCase();
+        const aprovado = String(data.lead_aprovado_abordagem || "com_ressalvas").toLowerCase();
+
+        if (compat === "compativel") badges.push({ label: "WhatsApp compatível", tone: "success" });
+        else if (compat === "divergente") badges.push({ label: "WhatsApp suspeito", tone: "danger" });
+        else badges.push({ label: "WhatsApp incerto", tone: "warn" });
+
+        if (tipoSite === "site_proprio" || tipoSite === "proprio") badges.push({ label: "Site próprio", tone: "success" });
+        else if (tipoSite === "site_terceirizado" || tipoSite === "generico") badges.push({ label: "Site terceirizado", tone: "warn" });
+        else badges.push({ label: "Sem site próprio", tone: "danger" });
+
+        if (aprovado === "sim") badges.push({ label: "Lead aprovado", tone: "success" });
+        else badges.push({ label: "Lead com ressalvas", tone: "warn" });
+
+        realAiBadges.innerHTML = badges.map(b => `<span class=\"laudo-badge ${b.tone}\">${b.label}</span>`).join("");
+    }
+
+    function buildLaudoSummary() {
+        return [
+            `Laudo do Lead: ${realAiLeadName?.textContent || "-"}`,
+            `Score: ${realAiScore?.textContent || "0/100"}`,
+            `Empresa: ${realAiExiste?.textContent || "Incerto"} | Atividade: ${realAiAtividade?.textContent || "Incerto"} | Status: ${realAiStatusProvavel?.textContent || "Incerto"}`,
+            `WhatsApp: ${realAiWhatsCompat?.textContent || "Incerto"} (${realAiWhatsConfianca?.textContent || "Baixa"})`,
+            `Instagram: ${realAiInstagramEncontrado?.textContent || "Incerto"} | Link na bio: ${realAiInstagramLink?.textContent || "Incerto"} | Tipo: ${realAiInstagramTipoLink?.textContent || "Não identificado"}`,
+            `Site: ${realAiSiteEncontrado?.textContent || "Incerto"} | Tipo: ${realAiTipoSite?.textContent || "Incerto"} | Qualidade: ${realAiQualidadeSite?.textContent || "Incerta"}`,
+            `Decisão: ${realAiAprovado?.textContent || "Com ressalvas"} | Prioridade: ${realAiPrioridade?.textContent || "Média"}`,
+            `Motivo prioridade: ${realAiMotivoPrioridade?.textContent || "-"}`,
+            `Próximo passo: ${realAiProximoPasso?.textContent || "-"}`,
+            `Oferta: ${realAiOferta?.textContent || "-"}`,
+            `Mensagem abordagem: ${realAiMessageText?.value || "-"}`
+        ].join("\\n");
     }
 
     // -------------------------------------------------------------

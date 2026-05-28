@@ -122,126 +122,148 @@
         </div>
     </div>
 
-    <!-- Real AI Analysis Modal -->
+        <!-- Real AI Analysis Modal -->
     <div id="realAiModal" class="modal-overlay hidden">
-        <div class="glass-card modal-card">
+        <div class="glass-card modal-card real-ai-modal-card">
             <div class="modal-header">
-                <h3>🔍 Pesquisa com IA Real & Web Search</h3>
+                <h3>📋 Laudo do Lead - Verificação Inteligente</h3>
                 <button type="button" class="modal-close" id="closeRealAiModal">×</button>
             </div>
-            
+
             <div class="modal-body">
-                <!-- Analyzing Animation -->
                 <div id="realAiLoading" class="ai-loading-container hidden">
                     <div class="radar-scan real-scan">
                         <div class="scan-line"></div>
                     </div>
                     <div class="loading-steps">
                         <p class="step active" data-step="1">🌐 Iniciando pesquisa web em tempo real...</p>
-                        <p class="step" data-step="2">🔎 Analisando site, redes e listagens locais...</p>
-                        <p class="step" data-step="3">🧠 Extraindo oportunidades comerciais com GPT-4...</p>
-                        <p class="step" data-step="4">📝 Redigindo diagnóstico comercial detalhado...</p>
+                        <p class="step" data-step="2">🔎 Validando sinais de atividade pública...</p>
+                        <p class="step" data-step="3">📱 Verificando compatibilidade de WhatsApp...</p>
+                        <p class="step" data-step="4">📋 Montando laudo de qualidade do lead...</p>
                     </div>
                 </div>
 
-                <!-- Analysis Results -->
                 <div id="realAiResults" class="ai-results-container">
                     <div class="ai-meta-row real-ai-header-badge">
                         <div>
-                            <span class="meta-label">EMPRESA (PESQUISA WEB REAL)</span>
+                            <span class="meta-label">VERIFICAÇÃO INTELIGENTE DO LEAD</span>
                             <h4 id="realAiLeadName">Nome da Empresa</h4>
                             <span class="real-ai-date" id="realAiDate">Analisado em: --/--/----</span>
                         </div>
                         <div class="text-right">
-                            <span class="badge-real-ai">🌐 IA Real c/ Pesquisa</span>
-                            <div class="score-container" style="margin-top: 6px;">
-                                <span class="score-label" style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; text-transform: uppercase;">Oportunidade</span>
-                                <strong id="realAiScore" style="font-size: 1.3rem; font-weight: 800; color: #a5f3fc;">85/100</strong>
+                            <span class="badge-real-ai">Qualidade do Lead</span>
+                            <div class="score-container laudo-score-container">
+                                <span class="score-label">Score do Lead</span>
+                                <strong id="realAiScore">85/100</strong>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Dynamic Grid Details -->
-                    <div class="real-ai-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; text-align: center;">
-                        <div class="grid-item">
-                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Empresa Existe?</span>
-                            <strong id="realAiExiste" style="color: var(--text-main); font-weight: 700;">Sim</strong>
-                        </div>
-                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
-                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Site Encontrado?</span>
-                            <strong id="realAiSiteEncontrado" style="color: var(--text-main); font-weight: 700;">Não</strong>
-                        </div>
-                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
-                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Tipo do Site</span>
-                            <strong id="realAiTipoSite" style="color: var(--text-main); font-weight: 700;">Rede Social</strong>
-                        </div>
-                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
-                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Presença Digital</span>
-                            <strong id="realAiPresenca" style="color: var(--text-main); font-weight: 700;">Fraca</strong>
-                        </div>
-                    </div>
+                    <div id="realAiBadges" class="laudo-badges"></div>
 
-                    <div class="analysis-section">
-                        <h5>Oportunidade & Diagnóstico</h5>
-                        <p id="realAiReasonText">Diagnóstico comercial detalhado...</p>
-                    </div>
+                    <div class="laudo-grid">
+                        <div class="laudo-card">
+                            <h5>Empresa</h5>
+                            <div class="laudo-list">
+                                <div><span>Empresa encontrada</span><strong id="realAiExiste">Incerto</strong></div>
+                                <div><span>Sinais de atividade</span><strong id="realAiAtividade">Incerto</strong></div>
+                                <div><span>Status provável</span><strong id="realAiStatusProvavel">Incerto</strong></div>
+                                <div><span>Confiança da verificação</span><strong id="realAiConfianca">0/100</strong></div>
+                            </div>
+                        </div>
 
-                    <div class="analysis-section-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="sec-half">
-                            <h5>Problema Detectado</h5>
-                            <p id="realAiProblema" class="highlight-text red" style="color: #fca5a5; font-weight: 600; font-size: 0.88rem; line-height: 1.4;"></p>
+                        <div class="laudo-card">
+                            <h5>WhatsApp</h5>
+                            <div class="laudo-list">
+                                <div><span>Número informado</span><strong id="realAiWhatsLead">-</strong></div>
+                                <div><span>Número no Instagram</span><strong id="realAiWhatsInsta">-</strong></div>
+                                <div><span>Número no site</span><strong id="realAiWhatsSite">-</strong></div>
+                                <div><span>Número em wa.me</span><strong id="realAiWhatsWaMe">-</strong></div>
+                                <div><span>Compatibilidade</span><strong id="realAiWhatsCompat">Incerto</strong></div>
+                                <div><span>Confiança</span><strong id="realAiWhatsConfianca">Baixa</strong></div>
+                            </div>
+                            <p id="realAiWhatsObs" class="laudo-note"></p>
                         </div>
-                        <div class="sec-half">
-                            <h5>Oferta Recomendada</h5>
-                            <p id="realAiOferta" class="highlight-text green" style="color: #86efac; font-weight: 600; font-size: 0.88rem; line-height: 1.4;"></p>
-                        </div>
-                    </div>
 
-                    <div class="analysis-section-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="sec-half">
-                            <h5>Preço Sugerido</h5>
-                            <p id="realAiPreco" class="price-highlight" style="color: #fef08a; font-weight: 800; font-size: 1.1rem;"></p>
+                        <div class="laudo-card">
+                            <h5>Instagram</h5>
+                            <div class="laudo-list">
+                                <div><span>Instagram encontrado</span><strong id="realAiInstagramEncontrado">Incerto</strong></div>
+                                <div><span>Bio com link</span><strong id="realAiInstagramLink">Incerto</strong></div>
+                                <div><span>Tipo do link</span><strong id="realAiInstagramTipoLink">Não identificado</strong></div>
+                            </div>
+                            <p id="realAiInstagramObs" class="laudo-note"></p>
                         </div>
-                        <div class="sec-half">
-                            <h5>Potencial de Venda</h5>
-                            <div>
-                                <span id="realAiPotentialBadge" class="potential-badge high">Alto</span>
+
+                        <div class="laudo-card">
+                            <h5>Site</h5>
+                            <div class="laudo-list">
+                                <div><span>Site encontrado</span><strong id="realAiSiteEncontrado">Incerto</strong></div>
+                                <div><span>Tipo de site</span><strong id="realAiTipoSite">Incerto</strong></div>
+                                <div><span>Qualidade percebida</span><strong id="realAiQualidadeSite">Incerta</strong></div>
+                            </div>
+                            <p id="realAiMotivoSite" class="laudo-note"></p>
+                        </div>
+
+                        <div class="laudo-card">
+                            <h5>Oportunidade</h5>
+                            <div class="analysis-section">
+                                <p id="realAiReasonText">Diagnóstico comercial detalhado...</p>
+                            </div>
+                            <div class="analysis-section-row laudo-two-col">
+                                <div class="sec-half">
+                                    <h6>Problema detectado</h6>
+                                    <p id="realAiProblema"></p>
+                                </div>
+                                <div class="sec-half">
+                                    <h6>Oferta recomendada</h6>
+                                    <p id="realAiOferta"></p>
+                                </div>
+                            </div>
+                            <div class="analysis-section-row laudo-two-col">
+                                <div class="sec-half">
+                                    <h6>Faixa de preço</h6>
+                                    <p id="realAiPreco"></p>
+                                </div>
+                                <div class="sec-half">
+                                    <h6>Potencial</h6>
+                                    <span id="realAiPotentialBadge" class="potential-badge">Médio</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="laudo-card">
+                            <h5>Decisão final</h5>
+                            <div class="laudo-list">
+                                <div><span>Lead aprovado</span><strong id="realAiAprovado">Com ressalvas</strong></div>
+                                <div><span>Prioridade</span><strong id="realAiPrioridade">Média</strong></div>
+                                <div><span>Motivo da prioridade</span><strong id="realAiMotivoPrioridade">-</strong></div>
+                                <div><span>Próximo passo</span><strong id="realAiProximoPasso">-</strong></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="analysis-section">
-                        <h5>Sugestão de Abordagem (WhatsApp)</h5>
+                        <h5>Mensagem curta de abordagem</h5>
                         <div class="message-container">
                             <textarea id="realAiMessageText" readonly class="ai-message-textarea"></textarea>
                             <div class="message-actions">
-                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">
-                                    📋 Copiar Texto
-                                </button>
-                                <a href="#" target="_blank" rel="noreferrer" class="btn btn-primary btn-small" id="sendRealAiWhatsapp">
-                                    💬 Enviar WhatsApp
-                                </a>
+                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiSummary">📋 Copiar resumo do laudo</button>
+                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">💬 Copiar mensagem de abordagem</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Sources List -->
                     <div class="analysis-section" id="realAiSourcesSection">
-                        <h5>Fontes e Referências Encontradas</h5>
-                        <ul class="sources-list" id="realAiSourcesList" style="margin: 0; padding-left: 20px; font-size: 0.82rem; line-height: 1.6; color: #a5f3fc;">
-                            <!-- Dynamic list of links -->
-                        </ul>
+                        <h5>Fontes e referências encontradas</h5>
+                        <ul class="sources-list" id="realAiSourcesList"></ul>
                     </div>
                 </div>
             </div>
-            
+
             <div class="modal-footer real-ai-footer" style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.1);">
-                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn" style="background: linear-gradient(135deg, var(--accent-purple) 0%, var(--primary) 100%);">
-                    🔄 Reanalisar (Pesquisa Real)
-                </button>
-                <button type="button" class="btn btn-outline btn-small" id="closeRealAiModalFooter">
-                    Fechar
-                </button>
+                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn" style="background: linear-gradient(135deg, var(--accent-purple) 0%, var(--primary) 100%);">🔄 Reanalisar lead</button>
+                <button type="button" class="btn btn-outline btn-small" id="closeRealAiModalFooter">Fechar</button>
             </div>
         </div>
     </div>
@@ -252,3 +274,4 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
+

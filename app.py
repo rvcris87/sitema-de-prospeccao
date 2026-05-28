@@ -1,4 +1,6 @@
+import os
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from apify_importer import import_apify_csv
 from database import (
@@ -25,8 +27,15 @@ import json
 from ia_real_service import execute_real_ai_analysis, get_current_limit_info
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "radar-local-secret-key-123"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "radar-local-secret-key-123")
 app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+if os.getenv("RAILWAY_PUBLIC_DOMAIN"):
+    app.config["SESSION_COOKIE_SECURE"] = True
+
+# Railway and other reverse proxies forward protocol/host headers.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 
 def login_required(f):
@@ -472,4 +481,5 @@ def api_test_apify_connection():
 init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=False)
