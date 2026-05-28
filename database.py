@@ -1,9 +1,30 @@
 import sqlite3
 from pathlib import Path
+import os
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATABASE_PATH = BASE_DIR / "leads.db"
+
+
+def _resolve_database_path():
+    """Resolve SQLite path with Railway-friendly fallback."""
+    env_path = (os.getenv("DATABASE_PATH") or "").strip()
+    if env_path:
+        return Path(env_path)
+
+    local_db = BASE_DIR / "leads.db"
+    try:
+        # If app folder is writable, keep local behavior.
+        with open(BASE_DIR / ".write_test", "w", encoding="utf-8") as f:
+            f.write("ok")
+        (BASE_DIR / ".write_test").unlink(missing_ok=True)
+        return local_db
+    except Exception:
+        # Fallback for platforms where app dir is read-only.
+        return Path("/tmp/leads.db")
+
+
+DATABASE_PATH = _resolve_database_path()
 
 
 STATUS_OPTIONS = [
