@@ -64,6 +64,11 @@ def landing():
     return render_template("landing.html")
 
 
+@app.route("/health")
+def health():
+    return {"ok": True, "service": "sitema-de-prospeccao"}, 200
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
