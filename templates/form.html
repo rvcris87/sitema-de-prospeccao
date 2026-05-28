@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Cadastro Inteligente</p>
+        <h1>{{ title }}</h1>
+    </div>
+    <a class="ghost-button" href="{{ url_for('index') }}">← Cancelar e Voltar</a>
+</section>
+
+<div class="glass-card form-container">
+    <form class="lead-form" method="post">
+        <div class="form-grid">
+            <label>
+                Nome da empresa *
+                <input name="nome_empresa" required value="{{ lead.nome_empresa if lead else '' }}" placeholder="Ex.: Barbearia Navalha Prime">
+            </label>
+            <label>
+                Nicho *
+                <input name="nicho" required placeholder="Ex.: clínica, restaurante, salão, oficina" value="{{ lead.nicho if lead else '' }}">
+            </label>
+            <label>
+                Cidade *
+                <input name="cidade" required placeholder="Ex.: Recife" value="{{ lead.cidade if lead else '' }}">
+            </label>
+            <label>
+                Telefone/WhatsApp
+                <input name="telefone_whatsapp" placeholder="Ex.: 81999998888" value="{{ lead.telefone_whatsapp if lead else '' }}">
+            </label>
+            <label>
+                Instagram
+                <input name="instagram" placeholder="Ex.: @navalhaprime" value="{{ lead.instagram if lead else '' }}">
+            </label>
+            <label>
+                Site oficial
+                <input name="site" placeholder="Ex.: www.navalhaprime.com.br" value="{{ lead.site if lead else '' }}">
+            </label>
+            <label>
+                Qualidade do site
+                <select name="qualidade_site">
+                    {% for option in site_quality_options %}
+                        <option value="{{ option }}" {% if lead and lead.qualidade_site == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Status no CRM
+                <select name="status">
+                    {% for option in status_options %}
+                        <option value="{{ option }}" {% if lead and lead.status == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="span-full">
+                Observações internas
+                <textarea name="observacoes" rows="4" placeholder="Ex.: Informações adicionais coletadas sobre o decisor ou horário de atendimento...">{{ lead.observacoes if lead else '' }}</textarea>
+            </label>
+            
+            <div class="section-divider span-full"><span>📍 Informações do Google Maps</span></div>
+            
+            <label>
+                Endereço completo
+                <input name="endereco" placeholder="Ex.: Rua das Flores, 123" value="{{ lead.endereco if lead else '' }}">
+            </label>
+            <label>
+                Estado (UF)
+                <input name="estado" placeholder="Ex.: PE" value="{{ lead.estado if lead else '' }}">
+            </label>
+            <label class="span-full">
+                Link do Google Maps
+                <input name="google_maps_url" placeholder="Ex.: https://maps.google.com/..." value="{{ lead.google_maps_url if lead else '' }}">
+            </label>
+            <label>
+                Nota de Avaliação (Google)
+                <input name="avaliacao" type="number" step="0.1" min="0" max="5" placeholder="Ex.: 4.8" value="{{ lead.avaliacao if lead and lead.avaliacao is not none else '' }}">
+            </label>
+            <label>
+                Total de Avaliações
+                <input name="qtd_avaliacoes" type="number" min="0" placeholder="Ex.: 124" value="{{ lead.qtd_avaliacoes if lead and lead.qtd_avaliacoes is not none else '' }}">
+            </label>
+            <label class="span-full">
+                Origem do Lead
+                <input name="origem_lead" placeholder="Ex.: Google Places, Indicação, Apify" value="{{ lead.origem_lead if lead else '' }}">
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button class="primary-button btn-large animate-hover" type="submit">💾 Salvar Lead</button>
+            <a class="ghost-button btn-large" href="{{ url_for('index') }}">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Radar Local IA{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar">
+        <a class="brand" href="{{ url_for('index') }}">
+            <span class="brand-mark">📡</span>
+            <span>
+                <strong>Radar Local IA</strong>
+                <small>Prospecção Inteligente</small>
+            </span>
+        </a>
+        
+        <nav class="nav">
+            <a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">
+                <span class="nav-icon">📊</span> Painel Geral
+            </a>
+            <a href="{{ url_for('buscar_leads') }}" class="nav-link {% if request.path == '/buscar-leads' %}active{% endif %}">
+                <span class="nav-icon">🔍</span> Buscar Leads
+            </a>
+            <a href="{{ url_for('importar_apify') }}" class="nav-link {% if request.path == '/importar-apify' %}active{% endif %}">
+                <span class="nav-icon">📥</span> Importar Apify
+            </a>
+            <a href="{{ url_for('new_lead') }}" class="nav-link {% if request.path == '/leads/novo' %}active{% endif %}">
+                <span class="nav-icon">➕</span> Cadastrar Lead
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar">D</div>
+                <div class="user-info">
+                    <strong>Demonstração</strong>
+                    <span>demo@radarlocal.com</span>
+                </div>
+            </div>
+            <a href="{{ url_for('logout') }}" class="btn-logout">
+                🚪 Sair da conta
+            </a>
+        </div>
+    </aside>
+
+    <main class="main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-list">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            <span class="flash-close" onclick="this.parentElement.remove()">×</span>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- AI Analysis Modal -->
+    <div id="aiModal" class="modal-overlay hidden">
+        <div class="glass-card modal-card">
+            <div class="modal-header">
+                <h3>🪄 Análise com IA Generativa</h3>
+                <button type="button" class="modal-close" id="closeAiModal">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Analyzing Animation -->
+                <div id="aiLoading" class="ai-loading-container hidden">
+                    <div class="radar-scan">
+                        <div class="scan-line"></div>
+                    </div>
+                    <div class="loading-steps">
+                        <p class="step active" data-step="1">📡 Conectando ao Radar Local...</p>
+                        <p class="step" data-step="2">🔎 Analisando presença digital...</p>
+                        <p class="step" data-step="3">📊 Diagnosticando pontos fracos do site...</p>
+                        <p class="step" data-step="4">📝 Redigindo pitch de WhatsApp personalizado...</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Results -->
+                <div id="aiResults" class="ai-results-container">
+                    <div class="ai-meta-row">
+                        <div>
+                            <span class="meta-label">EMPRESA</span>
+                            <h4 id="aiLeadName">Nome da Empresa</h4>
+                        </div>
+                        <div>
+                            <span class="meta-label">POTENCIAL</span>
+                            <span id="aiPotentialBadge" class="potential-badge high">Alto</span>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h5>Motivo da Oportunidade</h5>
+                        <p id="aiReasonText">O motivo detalhado será gerado aqui pela inteligência artificial...</p>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h5>Sugestão de Abordagem (WhatsApp)</h5>
+                        <div class="message-container">
+                            <textarea id="aiMessageText" readonly class="ai-message-textarea"></textarea>
+                            <div class="message-actions">
+                                <button type="button" class="btn btn-outline btn-small" id="copyAiMessage">
+                                    📋 Copiar Texto
+                                </button>
+                                <a href="#" target="_blank" rel="noreferrer" class="btn btn-primary btn-small" id="sendAiWhatsapp">
+                                    💬 Enviar WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real AI Analysis Modal -->
+    <div id="realAiModal" class="modal-overlay hidden">
+        <div class="glass-card modal-card">
+            <div class="modal-header">
+                <h3>🔍 Pesquisa com IA Real & Web Search</h3>
+                <button type="button" class="modal-close" id="closeRealAiModal">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Analyzing Animation -->
+                <div id="realAiLoading" class="ai-loading-container hidden">
+                    <div class="radar-scan real-scan">
+                        <div class="scan-line"></div>
+                    </div>
+                    <div class="loading-steps">
+                        <p class="step active" data-step="1">🌐 Iniciando pesquisa web em tempo real...</p>
+                        <p class="step" data-step="2">🔎 Analisando site, redes e listagens locais...</p>
+                        <p class="step" data-step="3">🧠 Extraindo oportunidades comerciais com GPT-4...</p>
+                        <p class="step" data-step="4">📝 Redigindo diagnóstico comercial detalhado...</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Results -->
+                <div id="realAiResults" class="ai-results-container">
+                    <div class="ai-meta-row real-ai-header-badge">
+                        <div>
+                            <span class="meta-label">EMPRESA (PESQUISA WEB REAL)</span>
+                            <h4 id="realAiLeadName">Nome da Empresa</h4>
+                            <span class="real-ai-date" id="realAiDate">Analisado em: --/--/----</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="badge-real-ai">🌐 IA Real c/ Pesquisa</span>
+                            <div class="score-container" style="margin-top: 6px;">
+                                <span class="score-label" style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; display: block; text-transform: uppercase;">Oportunidade</span>
+                                <strong id="realAiScore" style="font-size: 1.3rem; font-weight: 800; color: #a5f3fc;">85/100</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Grid Details -->
+                    <div class="real-ai-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; text-align: center;">
+                        <div class="grid-item">
+                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Empresa Existe?</span>
+                            <strong id="realAiExiste" style="color: var(--text-main); font-weight: 700;">Sim</strong>
+                        </div>
+                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
+                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Site Encontrado?</span>
+                            <strong id="realAiSiteEncontrado" style="color: var(--text-main); font-weight: 700;">Não</strong>
+                        </div>
+                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
+                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Tipo do Site</span>
+                            <strong id="realAiTipoSite" style="color: var(--text-main); font-weight: 700;">Rede Social</strong>
+                        </div>
+                        <div class="grid-item" style="border-left: 1px solid var(--border-color);">
+                            <span style="color: var(--text-muted); font-weight: 600; display: block; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 4px;">Presença Digital</span>
+                            <strong id="realAiPresenca" style="color: var(--text-main); font-weight: 700;">Fraca</strong>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h5>Oportunidade & Diagnóstico</h5>
+                        <p id="realAiReasonText">Diagnóstico comercial detalhado...</p>
+                    </div>
+
+                    <div class="analysis-section-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="sec-half">
+                            <h5>Problema Detectado</h5>
+                            <p id="realAiProblema" class="highlight-text red" style="color: #fca5a5; font-weight: 600; font-size: 0.88rem; line-height: 1.4;"></p>
+                        </div>
+                        <div class="sec-half">
+                            <h5>Oferta Recomendada</h5>
+                            <p id="realAiOferta" class="highlight-text green" style="color: #86efac; font-weight: 600; font-size: 0.88rem; line-height: 1.4;"></p>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="sec-half">
+                            <h5>Preço Sugerido</h5>
+                            <p id="realAiPreco" class="price-highlight" style="color: #fef08a; font-weight: 800; font-size: 1.1rem;"></p>
+                        </div>
+                        <div class="sec-half">
+                            <h5>Potencial de Venda</h5>
+                            <div>
+                                <span id="realAiPotentialBadge" class="potential-badge high">Alto</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h5>Sugestão de Abordagem (WhatsApp)</h5>
+                        <div class="message-container">
+                            <textarea id="realAiMessageText" readonly class="ai-message-textarea"></textarea>
+                            <div class="message-actions">
+                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">
+                                    📋 Copiar Texto
+                                </button>
+                                <a href="#" target="_blank" rel="noreferrer" class="btn btn-primary btn-small" id="sendRealAiWhatsapp">
+                                    💬 Enviar WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sources List -->
+                    <div class="analysis-section" id="realAiSourcesSection">
+                        <h5>Fontes e Referências Encontradas</h5>
+                        <ul class="sources-list" id="realAiSourcesList" style="margin: 0; padding-left: 20px; font-size: 0.82rem; line-height: 1.6; color: #a5f3fc;">
+                            <!-- Dynamic list of links -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer real-ai-footer" style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.1);">
+                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn" style="background: linear-gradient(135deg, var(--accent-purple) 0%, var(--primary) 100%);">
+                    🔄 Reanalisar (Pesquisa Real)
+                </button>
+                <button type="button" class="btn btn-outline btn-small" id="closeRealAiModalFooter">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast hidden">Status atualizado!</div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Buscar Leads | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Google Places API</p>
+        <h1>Buscar Empresas Locais</h1>
+    </div>
+    <a class="ghost-button" href="{{ url_for('index') }}">← Voltar ao CRM</a>
+</section>
+
+<div class="glass-card search-card">
+    <form class="search-panel" id="googlePlacesForm">
+        <label>
+            Nicho de atuação
+            <input name="nicho" required placeholder="Ex.: barbearia, clínica estética, pizzaria, academia">
+        </label>
+        <label>
+            Cidade
+            <input name="cidade" required placeholder="Ex.: Recife, Curitiba, Belo Horizonte">
+        </label>
+        <label>
+            Limite de resultados
+            <input name="limite" type="number" min="1" max="20" value="20">
+        </label>
+        <div class="form-submit-container">
+            <button class="primary-button btn-full animate-hover" type="submit">🔍 Encontrar Empresas</button>
+        </div>
+    </form>
+</div>
+
+<section class="api-help highlight-border">
+    <strong>💡 Como funciona a busca automática?</strong>
+    <span>Radar Local se conecta diretamente à API do Google Places para extrair estabelecimentos reais na cidade selecionada. A ferramenta analisa instantaneamente se cada empresa possui site cadastrado e telefone para contato comercial.</span>
+    <span>Para usar em produção: configure sua chave em um arquivo <code>.env</code> na raiz do projeto como <code>GOOGLE_PLACES_API_KEY=sua_chave</code>.</span>
+</section>
+
+<section class="results-toolbar hidden" id="resultsToolbar">
+    <div>
+        <strong id="resultsCount">0 leads encontrados</strong>
+        <span id="resultsMessage" class="toolbar-sub"></span>
+    </div>
+    <button class="secondary-button" type="button" id="saveAllLeads">💾 Importar Todos no CRM</button>
+</section>
+
+<section class="status-panel hidden" id="placesStatus"></section>
+
+<section class="lead-list" id="placesResults"></section>
+{% endblock %}

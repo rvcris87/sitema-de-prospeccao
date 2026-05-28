@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Painel Geral</p>
+        <h1>Radar Local de Leads</h1>
+    </div>
+    <div class="header-actions">
+        <a class="primary-button" href="{{ url_for('new_lead') }}">➕ Novo lead</a>
+        <a class="secondary-button" href="{{ url_for('buscar_leads') }}">🔍 Buscar Leads</a>
+    </div>
+</section>
+
+<!-- Metrics Grid (6 Cards) -->
+<section class="metrics">
+    <article class="metric-card total">
+        <div class="metric-icon">📂</div>
+        <div>
+            <span>Total de Leads</span>
+            <strong>{{ metrics.total }}</strong>
+        </div>
+    </article>
+    <article class="metric-card analyzed">
+        <div class="metric-icon">🧠</div>
+        <div>
+            <span>Leads Analisados</span>
+            <strong>{{ metrics.analisados }}</strong>
+        </div>
+    </article>
+    <article class="metric-card high-potential">
+        <div class="metric-icon">🔥</div>
+        <div>
+            <span>Alto Potencial</span>
+            <strong>{{ metrics.alto_potencial }}</strong>
+        </div>
+    </article>
+    <article class="metric-card no-site">
+        <div class="metric-icon">💻</div>
+        <div>
+            <span>Empresas Sem Site</span>
+            <strong>{{ metrics.sem_site }}</strong>
+        </div>
+    </article>
+    <article class="metric-card sent">
+        <div class="metric-icon">💬</div>
+        <div>
+            <span>Mensagens Enviadas</span>
+            <strong>{{ metrics.mensagens_enviadas }}</strong>
+        </div>
+    </article>
+    <article class="metric-card replied">
+        <div class="metric-icon">🤝</div>
+        <div>
+            <span>Respostas Recebidas</span>
+            <strong>{{ metrics.respostas_recebidas }}</strong>
+        </div>
+    </article>
+</section>
+
+<!-- Filter Form -->
+<form class="filters" method="get">
+    <label>
+        Nicho
+        <select name="nicho">
+            <option value="">Todos</option>
+            {% for option in filter_options.nichos %}
+                <option value="{{ option }}" {% if filters.nicho == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        Cidade
+        <select name="cidade">
+            <option value="">Todas</option>
+            {% for option in filter_options.cidades %}
+                <option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        Potencial
+        <select name="prioridade">
+            <option value="">Todos</option>
+            {% for option in ["Alta", "Média", "Baixa"] %}
+                <option value="{{ option }}" {% if filters.prioridade == option %}selected{% endif %}>
+                    {% if option == "Alta" %}Alto{% elif option == "Média" %}Médio{% else %}Baixo{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        Status
+        <select name="status">
+            <option value="">Todos</option>
+            {% for option in status_options %}
+                <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        Filtro de Site
+        <select name="site_filter">
+            <option value="">Todos</option>
+            <option value="tem_site" {% if filters.site_filter == "tem_site" %}selected{% endif %}>Tem site</option>
+            <option value="sem_site" {% if filters.site_filter == "sem_site" %}selected{% endif %}>Não tem site / Só redes</option>
+        </select>
+    </label>
+    <div class="filter-actions">
+        <button class="secondary-button" type="submit">Filtrar</button>
+        <a class="ghost-button" href="{{ url_for('index') }}">Limpar</a>
+    </div>
+</form>
+
+<!-- Leads List -->
+<section class="lead-list">
+    {% if leads %}
+        {% for lead in leads %}
+            <article class="lead-card potential-{{ lead.prioridade|lower|replace('é', 'e') }}" 
+                     id="lead-card-{{ lead.id }}"
+                     data-lead-id="{{ lead.id }}"
+                     data-nome="{{ lead.nome_empresa }}"
+                     data-nicho="{{ lead.nicho }}"
+                     data-cidade="{{ lead.cidade }}"
+                     data-site-qualidade="{{ lead.qualidade_site }}"
+                     data-site-url="{{ lead.site or '' }}"
+                     data-instagram="{{ lead.instagram or '' }}"
+                     data-telefone="{{ lead.telefone_whatsapp or '' }}"
+                     data-ai-analisado="{{ lead.ai_analisado }}"
+                     data-ai-potencial="{{ lead.ai_potencial or '' }}"
+                     data-ai-motivo="{{ lead.ai_motivo or '' }}"
+                     data-ai-sugestao="{{ lead.ai_sugestao or '' }}"
+                     data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}'
+                     data-ia-real-score="{{ lead.ia_real_score or 0 }}"
+                     data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}"
+                     data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}'
+                     data-analisado-em="{{ lead.analisado_em or '' }}">
+                
+                <header>
+                    <div>
+                        <span class="tag-nicho">{{ lead.nicho }}</span>
+                        <h2>{{ lead.nome_empresa }}</h2>
+                        <p class="location"><span class="loc-icon">📍</span> {{ lead.cidade }}</p>
+                    </div>
+                    <div class="card-badges">
+                        {% if lead.ia_real_resultado %}
+                            <span class="ai-badge-card" style="background: rgba(168, 85, 247, 0.12); border-color: rgba(168, 85, 247, 0.3); color: #c084fc;">🌐 IA Real Analisou</span>
+                        {% elif lead.ai_analisado == 1 %}
+                            <span class="ai-badge-card">🤖 IA Analisou</span>
+                        {% endif %}
+                        <span class="potential-tag {{ lead.prioridade|lower|replace('é', 'e') }}">
+                            {% if lead.prioridade == "Alta" %}Potencial Alto{% elif lead.prioridade == "Média" %}Potencial Médio{% else %}Potencial Baixo{% endif %}
+                        </span>
+                    </div>
+                </header>
+
+                <div class="lead-grid">
+                    <span>Site</span>
+                    <strong class="site-status-text">
+                        {% if lead.site %}
+                            <a href="{{ normalize_url(lead.site) }}" target="_blank" rel="noreferrer" class="site-link">{{ lead.site }}</a>
+                        {% else %}
+                            <span class="no-site-badge">{{ lead.qualidade_site }}</span>
+                        {% endif %}
+                    </strong>
+
+                    <span>WhatsApp</span>
+                    <strong>{{ lead.telefone_whatsapp or "Não informado" }}</strong>
+
+                    <span>Instagram</span>
+                    <strong>
+                        {% if lead.instagram %}
+                            <a href="{{ normalize_instagram(lead.instagram) }}" target="_blank" rel="noreferrer" class="insta-link">{{ lead.instagram }}</a>
+                        {% else %}
+                            <span class="not-informed">Não informado</span>
+                        {% endif %}
+                    </strong>
+
+                    <span>Status CRM</span>
+                    <div class="crm-select-wrapper">
+                        <select class="crm-status-select" data-lead-id="{{ lead.id }}">
+                            {% for status_opt in status_options %}
+                                <option value="{{ status_opt }}" {% if lead.status == status_opt %}selected{% endif %}>{{ status_opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {% if lead.ai_analisado == 1 %}
+                    <div class="ai-preview-box">
+                        <span class="ai-box-title">🤖 Insight da Inteligência Artificial:</span>
+                        <p class="ai-box-motivo">{{ lead.ai_motivo|truncate(140) }}</p>
+                    </div>
+                {% else %}
+                    <p class="diagnosis">{{ lead.diagnostico }}</p>
+                {% endif %}
+
+                <footer class="card-actions">
+                    <button class="primary-button run-ai-btn" type="button">
+                        {% if lead.ai_analisado == 1 %}🪄 Ver Análise IA{% else %}🪄 Analisar com IA{% endif %}
+                    </button>
+
+                    <button class="primary-button run-real-ai-btn" type="button" style="background: linear-gradient(135deg, var(--accent-purple) 0%, var(--primary) 100%);">
+                        {% if lead.ia_real_resultado %}🌐 Ver IA Real{% else %}🌐 Pesquisar com IA real{% endif %}
+                    </button>
+
+                    {% set whatsapp_url = whatsapp_link(lead.telefone_whatsapp) %}
+                    {% if whatsapp_url %}
+                        <a class="icon-button whatsapp-btn" target="_blank" rel="noreferrer" href="{{ whatsapp_url }}?text={{ (lead.ai_sugestao or lead.mensagem)|urlencode }}">
+                            💬 WhatsApp
+                        </a>
+                    {% endif %}
+
+                    {% if lead.google_maps_url %}
+                        <a class="icon-button maps-btn" target="_blank" rel="noreferrer" href="{{ lead.google_maps_url }}">
+                            🗺️ Maps
+                        </a>
+                    {% endif %}
+
+                    <a class="icon-button edit-btn" href="{{ url_for('edit_lead', lead_id=lead.id) }}">
+                        ✏️ Editar
+                    </a>
+                    
+                    <form method="post" action="{{ url_for('remove_lead', lead_id=lead.id) }}" data-confirm="Excluir este lead?" class="delete-form">
+                        <button class="danger-button" type="submit">🗑️</button>
+                    </form>
+                </footer>
+            </article>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <h2>Nenhum lead encontrado</h2>
+            <p>Cadastre empresas locais ou use a busca automática para começar a alimentar seu radar.</p>
+            <a class="primary-button animate-pulse" href="{{ url_for('new_lead') }}">Cadastrar primeiro lead</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

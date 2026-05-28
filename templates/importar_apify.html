@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Apify | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Apify Google Maps Scraper</p>
+        <h1>Importar CSV do Apify</h1>
+    </div>
+    <a class="ghost-button" href="{{ url_for('index') }}">← Voltar ao CRM</a>
+</section>
+
+<div class="glass-card import-card">
+    <form class="import-panel" method="post" enctype="multipart/form-data">
+        <label class="span-full file-upload-label">
+            Selecione o arquivo CSV exportado do Apify
+            <div class="file-drop-area">
+                <span class="file-icon">📄</span>
+                <input name="csv_file" type="file" accept=".csv,text/csv" required class="file-input">
+                <span class="file-info-text">Clique para escolher ou arraste o arquivo .csv aqui</span>
+            </div>
+        </label>
+        <button class="primary-button animate-hover" type="submit">📥 Processar e Importar Leads</button>
+    </form>
+</div>
+
+<div class="glass-card import-card" style="margin-top: 24px;">
+    <h3>🔌 Testar Conexão Apify</h3>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin: 8px 0 20px;">
+        Verifica se a variável <code>APIFY_API_TOKEN</code> está configurada corretamente no seu arquivo <code>.env</code> e valida o acesso à API da Apify.
+    </p>
+    <button class="secondary-button" id="btnTestApify" type="button">🔌 Testar Conexão com Apify</button>
+    <div id="apifyTestStatus" class="hidden" style="margin-top: 16px; padding: 12px; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 600;"></div>
+</div>
+
+<div class="api-help-grid">
+    <section class="api-help highlight-border">
+        <strong>📊 Colunas CSV Reconhecidas</strong>
+        <span>Nosso importador mapeia automaticamente as seguintes colunas exportadas do scraper:</span>
+        <code>title/name</code>, <code>categoryName/category</code>, <code>street/address</code>, <code>city</code>, <code>state</code>, <code>phone</code>, <code>website</code>, <code>url</code>, <code>totalScore</code> e <code>reviewsCount</code>.
+    </section>
+
+    <section class="api-help highlight-border">
+        <strong>🛡️ Tratamento de Dados e Duplicidade</strong>
+        <span>1. Duplicados são automaticamente ignorados com base em Nome + Cidade, Telefone ou Site.</span>
+        <span>2. Perfis de redes sociais (Facebook, Instagram, Linktree, WhatsApp) informados na coluna de website são classificados como “Só rede social” e marcados com prioridade alta para prospecção de sites.</span>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Entrar | Radar Local IA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="login-body">
+    <!-- Ambient Blur Background -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <div class="login-container">
+        <a href="/" class="login-logo text-center">
+            <span class="logo-icon">📡</span>
+            <span class="logo-text">Radar Local <span class="accent-text">IA</span></span>
+        </a>
+
+        <div class="glass-card login-card">
+            <h2>Acesse sua conta</h2>
+            <p class="login-subtitle">Entre para gerenciar seus leads e gerar abordagens.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-list">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="post" action="{{ url_for('login') }}" class="login-form">
+                <label>
+                    E-mail
+                    <input type="email" name="email" id="email" required placeholder="exemplo@email.com">
+                </label>
+                <label>
+                    Senha
+                    <input type="password" name="password" id="password" required placeholder="Sua senha">
+                </label>
+                <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+            </form>
+
+            <div class="demo-shortcut-box">
+                <p>Quer apenas testar?</p>
+                <a href="{{ url_for('demo_login') }}" class="btn btn-secondary btn-full">Acessar Versão Demonstrativa</a>
+                <span class="demo-credentials">Demo: <strong>demo@radarlocal.com</strong> / <strong>123456</strong></span>
+            </div>
+        </div>
+
+        <div class="login-footer">
+            <a href="/">← Voltar para a página inicial</a>
+        </div>
+    </div>
+</body>
+</html>
