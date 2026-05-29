@@ -5,10 +5,11 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <p class="eyebrow">Apify Google Maps Scraper</p>
+        <p class="eyebrow">Integrações e Importação</p>
         <h1>Importar CSV do Apify</h1>
+        <p class="subtitle">Centralize bases externas e transforme a captura em leads prontos para validação.</p>
     </div>
-    <a class="ghost-button" href="{{ url_for('index') }}">← Voltar ao CRM</a>
+    <a class="ghost-button" href="{{ url_for('index') }}#configuracoes-section">← Voltar às configurações</a>
 </section>
 
 <div class="glass-card import-card">
@@ -25,13 +26,13 @@
     </form>
 </div>
 
-<div class="glass-card import-card" style="margin-top: 24px;">
+<div class="glass-card import-card import-card-spaced">
     <h3>🔌 Testar Conexão Apify</h3>
-    <p style="color: var(--text-muted); font-size: 0.88rem; margin: 8px 0 20px;">
+    <p class="hint-text">
         Verifica se a variável <code>APIFY_API_TOKEN</code> está configurada corretamente no seu arquivo <code>.env</code> e valida o acesso à API da Apify.
     </p>
     <button class="secondary-button" id="btnTestApify" type="button">🔌 Testar Conexão com Apify</button>
-    <div id="apifyTestStatus" class="hidden" style="margin-top: 16px; padding: 12px; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 600;"></div>
+    <div id="apifyTestStatus" class="hidden api-test-status"></div>
 </div>
 
 <div class="api-help-grid">

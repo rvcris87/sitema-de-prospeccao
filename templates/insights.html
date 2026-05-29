@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Insights da IA | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Inteligência Estratégica</p>
+        <h1>Insights da IA</h1>
+        <p class="subtitle">Direções comerciais com base nos sinais de qualidade dos leads.</p>
+    </div>
+</section>
+
+<section class="panel">
+    {% if leads %}
+    <div class="capture-steps">
+        <article class="capture-step"><b>Conversão</b><span>Negócios com WhatsApp compatível e Instagram ativo convertem melhor.</span></article>
+        <article class="capture-step"><b>Diferenciação</b><span>Empresas sem site próprio têm maior oportunidade de venda imediata.</span></article>
+        <article class="capture-step"><b>Prioridade</b><span>Foque primeiro nos leads de alta prioridade com laudo aprovado.</span></article>
+    </div>
+    {% else %}
+    <div class="empty-state-card">
+        <div class="empty-state-icon">✨</div>
+        <h3>Nenhum insight disponível</h3>
+        <p>Assim que houver leads validados, os insights estratégicos aparecem aqui.</p>
+        <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

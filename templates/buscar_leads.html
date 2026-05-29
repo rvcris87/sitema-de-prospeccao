@@ -5,16 +5,26 @@
 {% block content %}
 <section class="page-header">
     <div>
-        <p class="eyebrow">Google Places API</p>
-        <h1>Buscar Empresas Locais</h1>
+        <p class="eyebrow">Captação Inteligente</p>
+        <h1>Capturar Leads</h1>
+        <p class="subtitle">Busque empresas locais por nicho e cidade. Depois valide a qualidade dos leads antes de abordar.</p>
     </div>
-    <a class="ghost-button" href="{{ url_for('index') }}">← Voltar ao CRM</a>
+    <a class="ghost-button" href="{{ url_for('leads_page') }}">← Voltar aos leads</a>
+</section>
+
+<section class="api-help highlight-border">
+    <strong>Fluxo guiado de validação</strong>
+    <div class="capture-steps">
+        <article class="capture-step"><b>Etapa 1</b><span>Defina a busca por nicho, cidade, estado, volume e fonte.</span></article>
+        <article class="capture-step"><b>Etapa 2</b><span>Clique em <strong>Capturar leads</strong> para buscar empresas locais.</span></article>
+        <article class="capture-step"><b>Etapa 3</b><span>Revise os resultados, salve no CRM e valide a qualidade antes de abordar.</span></article>
+    </div>
 </section>
 
 <div class="glass-card search-card">
     <form class="search-panel" id="googlePlacesForm">
         <label>
-            Nicho de atuação
+            Nicho
             <input name="nicho" required placeholder="Ex.: barbearia, clínica estética, pizzaria, academia">
         </label>
         <label>
@@ -22,19 +32,27 @@
             <input name="cidade" required placeholder="Ex.: Recife, Curitiba, Belo Horizonte">
         </label>
         <label>
-            Limite de resultados
+            Estado
+            <input name="estado" placeholder="Ex.: SP, PE, MG">
+        </label>
+        <label>
+            Quantidade de resultados
             <input name="limite" type="number" min="1" max="20" value="20">
         </label>
+        <label>
+            Fonte
+            <input value="Google Places" readonly>
+        </label>
         <div class="form-submit-container">
-            <button class="primary-button btn-full animate-hover" type="submit">🔍 Encontrar Empresas</button>
+            <button class="primary-button btn-full animate-hover" type="submit">Capturar leads</button>
         </div>
     </form>
 </div>
 
 <section class="api-help highlight-border">
-    <strong>💡 Como funciona a busca automática?</strong>
-    <span>Radar Local se conecta diretamente à API do Google Places para extrair estabelecimentos reais na cidade selecionada. A ferramenta analisa instantaneamente se cada empresa possui site cadastrado e telefone para contato comercial.</span>
-    <span>Para usar em produção: configure sua chave em um arquivo <code>.env</code> na raiz do projeto como <code>GOOGLE_PLACES_API_KEY=sua_chave</code>.</span>
+    <strong>💡 Após buscar, valide antes de abordar</strong>
+    <span>Os resultados retornam empresas reais. Salve os leads e valide com o laudo para identificar WhatsApp compatível, situação do site e oportunidade comercial.</span>
+    <span>Para usar em produção: configure seu token em um arquivo <code>.env</code> na raiz do projeto como <code>APIFY_API_TOKEN=seu_token</code>.</span>
 </section>
 
 <section class="results-toolbar hidden" id="resultsToolbar">
@@ -42,10 +60,18 @@
         <strong id="resultsCount">0 leads encontrados</strong>
         <span id="resultsMessage" class="toolbar-sub"></span>
     </div>
-    <button class="secondary-button" type="button" id="saveAllLeads">💾 Importar Todos no CRM</button>
+    <button class="secondary-button" type="button" id="saveAllLeads">Salvar leads para validar</button>
 </section>
 
 <section class="status-panel hidden" id="placesStatus"></section>
 
-<section class="lead-list" id="placesResults"></section>
+<section class="panel capture-before-search" id="captureBeforeSearch">
+    <div class="empty-state-card">
+        <div class="empty-state-icon">🎯</div>
+        <h3>Pronto para capturar leads</h3>
+        <p>Defina os critérios de busca e clique em <strong>Capturar leads</strong> para iniciar a coleta.</p>
+    </div>
+</section>
+
+<section class="lead-list capture-results" id="placesResults"></section>
 {% endblock %}

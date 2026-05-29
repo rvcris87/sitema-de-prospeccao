@@ -196,10 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function updateCardUiAfterAnalysis(card, result) {
-        // Change "Analisar com IA" button text
+        // Keep quick verification action text aligned with lead-quality flow
         const aiBtn = card.querySelector(".run-ai-btn");
         if (aiBtn) {
-            aiBtn.textContent = "🪄 Ver Análise IA";
+            aiBtn.textContent = "🪄 Verificar qualidade do lead";
         }
 
         // Set AI Analyzed Badge in header if not already present
@@ -240,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const truncatedMotivo = result.ai_motivo.length > 140 ? result.ai_motivo.slice(0, 137) + "..." : result.ai_motivo;
         aiPreview.innerHTML = `
-            <span class="ai-box-title">🤖 Insight da Inteligência Artificial:</span>
+            <span class="ai-box-title">🤖 Pré-análise do lead:</span>
             <p class="ai-box-motivo">${truncatedMotivo}</p>
         `;
 
@@ -254,11 +254,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // -------------------------------------------------------------
-    // 3. Google Places API Search Results Flow
+    // 3. Apify Search Results Flow
     // -------------------------------------------------------------
     const googlePlacesForm = document.getElementById("googlePlacesForm");
     const placesResults = document.getElementById("placesResults");
     const placesStatus = document.getElementById("placesStatus");
+    const captureBeforeSearch = document.getElementById("captureBeforeSearch");
     const resultsToolbar = document.getElementById("resultsToolbar");
     const resultsCount = document.getElementById("resultsCount");
     const resultsMessage = document.getElementById("resultsMessage");
@@ -271,12 +272,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const formData = new FormData(googlePlacesForm);
             const payload = Object.fromEntries(formData.entries());
 
-            setPlacesStatus("🔍 Buscando empresas reais no Google Places...", "info");
+            setPlacesStatus("🔍 Buscando empresas reais na Apify...", "info");
+            placesStatus.classList.add("loading-dots");
             placesResults.innerHTML = "";
             resultsToolbar.classList.add("hidden");
+            if (captureBeforeSearch) captureBeforeSearch.classList.add("hidden");
 
             try {
-                const response = await fetch("/api/google-places/buscar", {
+                const response = await fetch("/api/apify/buscar", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
@@ -284,18 +287,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
 
                 if (!response.ok || !data.ok) {
-                    foundLeads = [];
-                    setPlacesStatus(data.message || "Não foi possível concluir a busca.", "error");
-                    return;
-                }
-
-                foundLeads = data.leads || [];
-                renderPlacesResults(foundLeads, data.message);
-            } catch (error) {
                 foundLeads = [];
-                setPlacesStatus("Erro inesperado ao buscar leads. Verifique a conexão e tente novamente.", "error");
+                setPlacesStatus(data.message || "Não foi possível concluir a busca.", "error");
+                placesStatus.classList.remove("loading-dots");
+                return;
             }
-        });
+
+            foundLeads = data.leads || [];
+            placesStatus.classList.remove("loading-dots");
+            renderPlacesResults(foundLeads, data.message);
+        } catch (error) {
+            foundLeads = [];
+            setPlacesStatus("Erro inesperado ao buscar leads. Verifique a conexão e tente novamente.", "error");
+            placesStatus.classList.remove("loading-dots");
+        }
+    });
     }
 
     if (saveAllButton) {
@@ -304,10 +310,10 @@ document.addEventListener("DOMContentLoaded", () => {
             
             saveAllButton.disabled = true;
             saveAllButton.textContent = "Salvando...";
-            const result = await postJson("/api/google-places/salvar-todos", { leads: foundLeads });
+            const result = await postJson("/api/apify/salvar-todos", { leads: foundLeads });
             
             setPlacesStatus(result.message || "Leads processados.", result.ok ? "success" : "error");
-            saveAllButton.textContent = "💾 Importar Todos no CRM";
+            saveAllButton.textContent = "💾 Salvar todos para validar";
             saveAllButton.disabled = false;
         });
     }
@@ -317,6 +323,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!leads.length) {
             setPlacesStatus(message || "Nenhum lead encontrado para essa busca.", "info");
+            if (captureBeforeSearch) captureBeforeSearch.classList.remove("hidden");
             return;
         }
 
@@ -327,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         leads.forEach((lead, index) => {
             const card = document.createElement("article");
-            card.className = `lead-card potential-${priorityClass(lead.prioridade)}`;
+            card.className = `lead-card capture-lead-card potential-${priorityClass(lead.prioridade)}`;
             card.innerHTML = `
                 <header>
                     <div>
@@ -349,7 +356,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
                 <p class="diagnosis">${escapeHtml(lead.diagnostico)}</p>
                 <footer class="card-actions">
-                    <button class="primary-button save-found-lead" type="button" data-index="${index}">💾 Salvar no CRM</button>
+                    <button class="primary-button save-found-lead" type="button" data-index="${index}">Salvar lead</button>
+                    <button class="secondary-button validate-found-lead" type="button" data-index="${index}">Validar lead</button>
+                    <button class="ghost-button discard-found-lead" type="button" data-index="${index}">Descartar</button>
                     ${lead.google_maps_url ? `<a class="icon-button maps-btn" href="${escapeAttribute(lead.google_maps_url)}" target="_blank" rel="noreferrer">🗺️ Maps</a>` : ""}
                 </footer>
             `;
@@ -367,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         saveButton.disabled = true;
         saveButton.textContent = "Salvando...";
         
-        const result = await postJson("/api/google-places/salvar", { lead });
+        const result = await postJson("/api/apify/salvar", { lead });
         
         if (result.ok) {
             saveButton.textContent = "✓ Salvo";
@@ -494,8 +503,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeRealAiModalFooter = document.getElementById("closeRealAiModalFooter");
     const realAiLoading = document.getElementById("realAiLoading");
     const realAiResults = document.getElementById("realAiResults");
+    const realAiConnectionIssue = document.getElementById("realAiConnectionIssue");
+    const runLocalFallbackBtn = document.getElementById("runLocalFallbackBtn");
     
     const realAiLeadName = document.getElementById("realAiLeadName");
+    const realAiLeadMeta = document.getElementById("realAiLeadMeta");
     const realAiDate = document.getElementById("realAiDate");
     const realAiScore = document.getElementById("realAiScore");
     const realAiBadges = document.getElementById("realAiBadges");
@@ -518,6 +530,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const realAiTipoSite = document.getElementById("realAiTipoSite");
     const realAiQualidadeSite = document.getElementById("realAiQualidadeSite");
     const realAiMotivoSite = document.getElementById("realAiMotivoSite");
+    const realAiResumoCurto = document.getElementById("realAiResumoCurto");
     const realAiReasonText = document.getElementById("realAiReasonText");
     const realAiProblema = document.getElementById("realAiProblema");
     const realAiOferta = document.getElementById("realAiOferta");
@@ -527,10 +540,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const realAiMotivoPrioridade = document.getElementById("realAiMotivoPrioridade");
     const realAiProximoPasso = document.getElementById("realAiProximoPasso");
     const realAiPotentialBadge = document.getElementById("realAiPotentialBadge");
+    const realAiDecisionBadge = document.getElementById("realAiDecisionBadge");
+    const realAiPriorityBadge = document.getElementById("realAiPriorityBadge");
+    const realAiResumoAcao = document.getElementById("realAiResumoAcao");
     const realAiMessageText = document.getElementById("realAiMessageText");
     
     const copyRealAiSummaryBtn = document.getElementById("copyRealAiSummary");
     const copyRealAiMessageBtn = document.getElementById("copyRealAiMessage");
+    const regenerateApproachBtn = document.getElementById("regenerateApproachBtn");
     const realAiSourcesSection = document.getElementById("realAiSourcesSection");
     const realAiSourcesList = document.getElementById("realAiSourcesList");
     const reanalyzeRealAiBtn = document.getElementById("reanalyzeRealAiBtn");
@@ -538,6 +555,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentRealAiLeadCard = null;
 
     document.addEventListener("click", async (event) => {
+        const revalidateButton = event.target.closest(".revalidate-lead-btn");
+        if (revalidateButton) {
+            const card = revalidateButton.closest(".lead-card");
+            if (!card) return;
+            currentRealAiLeadCard = card;
+            realAiModal.classList.remove("hidden");
+            realAiLeadName.textContent = card.dataset.nome || "Lead";
+            triggerRealAiFetch(card.dataset.leadId, card, true);
+            return;
+        }
+
         const realAiBtn = event.target.closest(".run-real-ai-btn");
         if (!realAiBtn) return;
 
@@ -570,6 +598,38 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             triggerRealAiFetch(leadId, card, false);
         }
+    });
+
+    document.addEventListener("click", (event) => {
+        const discardButton = event.target.closest(".discard-found-lead");
+        if (!discardButton) return;
+        discardButton.closest(".capture-lead-card")?.remove();
+        showToast("Lead descartado da revisão.", "info");
+    });
+
+    document.addEventListener("click", async (event) => {
+        const validateButton = event.target.closest(".validate-found-lead");
+        if (!validateButton) return;
+        if (validateButton.dataset.ready === "1") {
+            window.location.href = "/dashboard#leads-section";
+            return;
+        }
+
+        const lead = foundLeads[Number(validateButton.dataset.index)];
+        if (!lead) return;
+
+        validateButton.disabled = true;
+        validateButton.textContent = "Salvando...";
+        const result = await postJson("/api/apify/salvar", { lead });
+        if (!(result.ok || result.reason === "duplicado")) {
+            validateButton.textContent = "Erro";
+            showToast(result.message || "Não foi possível salvar para validar.", "error");
+            return;
+        }
+        validateButton.disabled = false;
+        validateButton.textContent = "Abrir em Leads";
+        validateButton.dataset.ready = "1";
+        showToast("Lead preparado para validação no painel de Leads.");
     });
 
     async function triggerRealAiFetch(leadId, card, reanalisar) {
@@ -618,26 +678,35 @@ document.addEventListener("DOMContentLoaded", () => {
                     showRealAiResults(result, card);
                 } else {
                     const errMsg = result.message || "Erro desconhecido ao executar pesquisa com IA.";
-                    showToast(errMsg, "error");
-                    realAiModal.classList.add("hidden");
+                    if (result.connection_issue) {
+                        showRealAiConnectionIssue(errMsg || "IA indisponível neste ambiente");
+                    } else {
+                        showToast(errMsg, "error");
+                        realAiModal.classList.add("hidden");
+                    }
                 }
             }, delay);
         } catch (error) {
             clearInterval(stepInterval);
-            showToast("Falha de conexão ao acessar IA real.", "error");
-            realAiModal.classList.add("hidden");
+            showRealAiConnectionIssue("IA indisponível neste ambiente");
         }
     }
 
     function showRealAiLoading() {
         realAiLoading.classList.remove("hidden");
         realAiResults.classList.add("hidden");
+        if (realAiConnectionIssue) {
+            realAiConnectionIssue.classList.add("hidden");
+        }
         reanalyzeRealAiBtn.style.display = "none";
     }
 
     function showRealAiResults(result, card) {
         realAiLoading.classList.add("hidden");
         realAiResults.classList.remove("hidden");
+        if (realAiConnectionIssue) {
+            realAiConnectionIssue.classList.add("hidden");
+        }
         reanalyzeRealAiBtn.style.display = "inline-flex";
 
         const data = result.data;
@@ -645,6 +714,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Header and Date
         realAiDate.textContent = `Analisado em: ${result.analisado_em || 'Recente'}`;
         realAiScore.textContent = `${result.score || 0}/100`;
+        if (realAiLeadMeta) {
+            realAiLeadMeta.textContent = `${card.dataset.cidade || "Cidade não informada"} • ${card.dataset.nicho || "Nicho não informado"}`;
+        }
 
         realAiExiste.textContent = capitalizeFirstLetter(data.empresa_existe || "incerto");
         realAiAtividade.textContent = capitalizeFirstLetter(data.sinais_atividade || "incerto");
@@ -668,6 +740,7 @@ document.addEventListener("DOMContentLoaded", () => {
         realAiTipoSite.textContent = formatSiteType(data.tipo_site || "incerto");
         realAiQualidadeSite.textContent = capitalizeFirstLetter(data.qualidade_site || "incerta");
         realAiMotivoSite.textContent = data.motivo_qualidade_site || "Sem evidências suficientes para classificar o site com confiança.";
+        realAiResumoCurto.textContent = data.diagnostico || "Sem resumo geral disponível.";
 
         // Sections
         realAiReasonText.textContent = data.diagnostico || "Sem diagnóstico disponível.";
@@ -683,6 +756,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const potencial = result.potencial || "baixo";
         realAiPotentialBadge.textContent = `Potencial ${capitalizeFirstLetter(potencial)}`;
         realAiPotentialBadge.className = `potential-badge ${priorityClass(potencial)}`;
+        if (realAiDecisionBadge) {
+            const aprov = String(data.lead_aprovado_abordagem || "com_ressalvas").toLowerCase();
+            if (aprov === "sim") {
+                realAiDecisionBadge.className = "badge good";
+                realAiDecisionBadge.textContent = "Aprovado";
+                if (realAiResumoAcao) realAiResumoAcao.textContent = "Abordar agora";
+            } else if (aprov === "nao") {
+                realAiDecisionBadge.className = "badge bad";
+                realAiDecisionBadge.textContent = "Descartar";
+                if (realAiResumoAcao) realAiResumoAcao.textContent = "Descartar lead";
+            } else {
+                realAiDecisionBadge.className = "badge warn";
+                realAiDecisionBadge.textContent = "Validar melhor";
+                if (realAiResumoAcao) realAiResumoAcao.textContent = "Investigar melhor";
+            }
+        }
+        if (realAiPriorityBadge) {
+            const p = String(data.prioridade || "media").toLowerCase();
+            realAiPriorityBadge.className = `badge ${p.includes("alta") ? "good" : p.includes("baixa") ? "bad" : "warn"}`;
+            realAiPriorityBadge.textContent = `Prioridade ${capitalizeFirstLetter(p)}`;
+        }
         renderLaudoBadges(data);
 
         // Message
@@ -709,8 +803,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function showRealAiConnectionIssue(message) {
+        realAiLoading.classList.add("hidden");
+        realAiResults.classList.add("hidden");
+        if (realAiConnectionIssue) {
+            realAiConnectionIssue.classList.remove("hidden");
+            const issueText = realAiConnectionIssue.querySelector("p");
+            if (issueText) {
+                issueText.textContent = message || "Não foi possível conectar à OpenAI neste ambiente. Verifique firewall, antivírus, proxy ou rode o app em ambiente com acesso externo.";
+            }
+        }
+        reanalyzeRealAiBtn.style.display = "none";
+    }
+
     function updateCardUiAfterRealAnalysis(card, result) {
-        // Update "Pesquisar com IA real" button text
+        // Update main action button text
         const realBtn = card.querySelector(".run-real-ai-btn");
         if (realBtn) {
             realBtn.textContent = "📋 Ver laudo do lead";
@@ -801,6 +908,42 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    if (regenerateApproachBtn) {
+        regenerateApproachBtn.addEventListener("click", () => {
+            if (currentRealAiLeadCard) {
+                const leadId = currentRealAiLeadCard.dataset.leadId;
+                triggerRealAiFetch(leadId, currentRealAiLeadCard, true);
+            }
+        });
+    }
+
+    if (runLocalFallbackBtn) {
+        runLocalFallbackBtn.addEventListener("click", async () => {
+            if (!currentRealAiLeadCard) {
+                showToast("Lead não encontrado para fallback local.", "error");
+                return;
+            }
+            const leadId = currentRealAiLeadCard.dataset.leadId;
+            try {
+                const response = await fetch(`/api/leads/${leadId}/analisar`, { method: "POST" });
+                const result = await response.json();
+                if (!(response.ok && result.ok)) {
+                    throw new Error(result.message || "Falha no fallback local.");
+                }
+
+                currentRealAiLeadCard.dataset.aiAnalisado = "1";
+                currentRealAiLeadCard.dataset.aiPotencial = result.ai_potencial;
+                currentRealAiLeadCard.dataset.aiMotivo = result.ai_motivo;
+                currentRealAiLeadCard.dataset.aiSugestao = result.ai_sugestao;
+                updateCardUiAfterAnalysis(currentRealAiLeadCard, result);
+                showToast("Fallback local executado com sucesso.");
+                realAiModal.classList.add("hidden");
+            } catch (err) {
+                showToast("Não foi possível executar o fallback local.", "error");
+            }
+        });
+    }
+
     if (copyRealAiSummaryBtn) {
         copyRealAiSummaryBtn.addEventListener("click", async () => {
             const originalText = copyRealAiSummaryBtn.textContent;
@@ -858,7 +1001,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const aprovado = String(data.lead_aprovado_abordagem || "com_ressalvas").toLowerCase();
 
         if (compat === "compativel") badges.push({ label: "WhatsApp compatível", tone: "success" });
-        else if (compat === "divergente") badges.push({ label: "WhatsApp suspeito", tone: "danger" });
+        else if (compat === "divergente") badges.push({ label: "WhatsApp divergente", tone: "danger" });
         else badges.push({ label: "WhatsApp incerto", tone: "warn" });
 
         if (tipoSite === "site_proprio" || tipoSite === "proprio") badges.push({ label: "Site próprio", tone: "success" });
@@ -866,6 +1009,7 @@ document.addEventListener("DOMContentLoaded", () => {
         else badges.push({ label: "Sem site próprio", tone: "danger" });
 
         if (aprovado === "sim") badges.push({ label: "Lead aprovado", tone: "success" });
+        else if (aprovado === "nao") badges.push({ label: "Possível lead ruim", tone: "danger" });
         else badges.push({ label: "Lead com ressalvas", tone: "warn" });
 
         realAiBadges.innerHTML = badges.map(b => `<span class=\"laudo-badge ${b.tone}\">${b.label}</span>`).join("");

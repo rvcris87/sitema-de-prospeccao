@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Configurações | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Conta e Operação</p>
+        <h1>Configurações</h1>
+        <p class="subtitle">Gerencie dados de usuário, plano e preferências da sua operação.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="settings-grid">
+        <article class="settings-card">
+            <h3>Perfil</h3>
+            <p>Dados principais de identificação do usuário.</p>
+            <label>Nome<input type="text" value="{{ current_user.nome }}" readonly></label>
+            <label>E-mail<input type="email" value="{{ current_user.email }}" readonly></label>
+        </article>
+
+        <article class="settings-card">
+            <h3>Conta</h3>
+            <p>Resumo da conta ativa no Radar Local IA.</p>
+            <label>Plano<input type="text" value="{{ current_user.plano }}" readonly></label>
+            <label>Status<input type="text" value="Ativo" readonly></label>
+        </article>
+
+        <article class="settings-card">
+            <h3>Preferências</h3>
+            <p>Configurações visuais e operacionais iniciais.</p>
+            <label>Tema<input type="text" value="Premium Terracota" readonly></label>
+            <label>Notificações<input type="text" value="Ativadas" readonly></label>
+        </article>
+
+        <article class="settings-card">
+            <h3>Integrações</h3>
+            <p>Gerencie importação de base e fontes externas.</p>
+            <div class="form-actions">
+                <a class="secondary-button" href="{{ url_for('importar_apify') }}">Integrações e importação</a>
+            </div>
+        </article>
+
+        <article class="settings-card">
+            <h3>Segurança</h3>
+            <p>Proteção da sessão e acesso à plataforma.</p>
+            <div class="form-actions">
+                <a class="ghost-button" href="{{ url_for('logout') }}">Encerrar sessão</a>
+            </div>
+        </article>
+
+        <article class="settings-card">
+            <h3>Plano</h3>
+            <p>Informações comerciais e capacidade operacional.</p>
+            <label>Limite atual<input type="text" value="Conforme plano {{ current_user.plano }}" readonly></label>
+            <label>Renovação<input type="text" value="Mensal" readonly></label>
+        </article>
+    </div>
+</section>
+{% endblock %}

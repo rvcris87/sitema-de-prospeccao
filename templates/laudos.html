@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Laudos | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Diagnóstico Inteligente</p>
+        <h1>Laudos</h1>
+        <p class="subtitle">Filtre laudos por qualidade e abra os relatórios completos de verificação.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <form class="filters" method="get">
+        <label>Score mínimo <input type="number" name="score_min" min="0" max="100" value="{{ request.args.get('score_min','') }}"></label>
+        <label>Cidade
+            <select name="cidade"><option value="">Todas</option>{% for option in filter_options.cidades %}<option value="{{ option }}" {% if request.args.get('cidade','') == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+        </label>
+        <label>WhatsApp
+            <select name="whatsapp_compat"><option value="">Todos</option><option value="compativel">Verificado</option><option value="incerto">Incerto</option><option value="divergente">Incompatível</option></select>
+        </label>
+        <label>Site
+            <select name="tipo_site"><option value="">Todos</option><option value="site_proprio">Tem site</option><option value="site_terceirizado">Site fraco</option><option value="nao_encontrado">Sem site</option></select>
+        </label>
+        <div class="filter-actions"><button class="secondary-button" type="submit">Filtrar</button></div>
+    </form>
+
+    <div class="table-wrap">
+        <table class="table-clean">
+            <thead><tr><th>Empresa</th><th>Resumo executivo</th><th>Score</th><th>Recomendação</th><th>WhatsApp</th><th>Site</th><th>Oportunidade</th><th>Ação</th></tr></thead>
+            <tbody>
+                {% for lead in leads if lead.ia_real_resultado %}
+                <tr class="lead-card"
+                    data-lead-id="{{ lead.id }}"
+                    data-nome="{{ lead.nome_empresa }}"
+                    data-nicho="{{ lead.nicho }}"
+                    data-cidade="{{ lead.cidade }}"
+                    data-site-qualidade="{{ lead.qualidade_site }}"
+                    data-site-url="{{ lead.site or '' }}"
+                    data-instagram="{{ lead.instagram or '' }}"
+                    data-telefone="{{ lead.telefone_whatsapp or '' }}"
+                    data-ai-analisado="{{ lead.ai_analisado }}"
+                    data-ai-potencial="{{ lead.ai_potencial or '' }}"
+                    data-ai-motivo="{{ lead.ai_motivo or '' }}"
+                    data-ai-sugestao="{{ lead.ai_sugestao or '' }}"
+                    data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}'
+                    data-ia-real-score="{{ lead.ia_real_score or 0 }}"
+                    data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}"
+                    data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}'
+                    data-analisado-em="{{ lead.analisado_em or '' }}">
+                    <td>
+                        <div class="table-entity">
+                            <strong>{{ lead.nome_empresa }}</strong>
+                            <small>{{ lead.cidade }} • {{ lead.nicho }}</small>
+                        </div>
+                    </td>
+                    <td class="table-summary">{{ lead._conclusao|truncate(95) }}</td>
+                    <td><span class="badge neutral">Score {{ lead._score }}</span></td>
+                    <td><span class="badge {% if lead._status_geral == 'Aprovado' %}good{% elif lead._status_geral == 'Com ressalvas' %}warn{% else %}bad{% endif %}">{{ lead._status_geral }}</span></td>
+                    <td>
+                        <span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% elif lead._whatsapp_compat == 'incerto' %}warn{% else %}bad{% endif %}">
+                            {% if lead._whatsapp_compat == "compativel" %}Verificado{% elif lead._whatsapp_compat == "incerto" %}Incerto{% else %}Incompatível{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if lead._site_tipo in ['site_proprio','proprio'] %}good{% elif lead._site_tipo in ['site_terceirizado','cardapio_plataforma_externa'] %}warn{% else %}bad{% endif %}">
+                            {% if lead._site_tipo in ["site_proprio","proprio"] %}Tem site{% elif lead._site_tipo in ["site_terceirizado","cardapio_plataforma_externa"] %}Site fraco{% else %}Sem site{% endif %}
+                        </span>
+                    </td>
+                    <td><span class="badge {% if lead.prioridade == 'Alta' %}good{% elif lead.prioridade == 'Média' %}warn{% else %}bad{% endif %}">{{ lead.prioridade }}</span></td>
+                    <td><button class="primary-button run-real-ai-btn" type="button">Abrir laudo</button></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8">
+                    <div class="empty-state-card">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>Nenhum laudo gerado ainda</h3>
+                        <p>Valide leads para preencher esta área com relatórios de qualidade.</p>
+                        <a href="{{ url_for('leads_page') }}" class="primary-button">Ir para Leads</a>
+                    </div>
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

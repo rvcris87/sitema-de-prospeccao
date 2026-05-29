@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Oportunidades | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Prioridade Comercial</p>
+        <h1>Oportunidades</h1>
+        <p class="subtitle">Ranking dos leads com maior potencial de conversão.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Melhores oportunidades</h2>
+    {% set oportunidades = leads|selectattr('prioridade', 'equalto', 'Alta')|list %}
+    {% if oportunidades %}
+        <div class="table-wrap">
+            <table class="table-clean">
+                <thead><tr><th>Empresa</th><th>Cidade</th><th>Score</th><th>WhatsApp</th><th>Ação</th></tr></thead>
+                <tbody>
+                {% for lead in oportunidades %}
+                    <tr class="lead-card" data-lead-id="{{ lead.id }}" data-nome="{{ lead.nome_empresa }}" data-nicho="{{ lead.nicho }}" data-cidade="{{ lead.cidade }}" data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}' data-ia-real-score="{{ lead.ia_real_score or 0 }}" data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}" data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}' data-analisado-em="{{ lead.analisado_em or '' }}" data-site-qualidade="{{ lead.qualidade_site }}" data-site-url="{{ lead.site or '' }}" data-instagram="{{ lead.instagram or '' }}" data-telefone="{{ lead.telefone_whatsapp or '' }}" data-ai-analisado="{{ lead.ai_analisado }}" data-ai-potencial="{{ lead.ai_potencial or '' }}" data-ai-motivo="{{ lead.ai_motivo or '' }}" data-ai-sugestao="{{ lead.ai_sugestao or '' }}">
+                        <td>{{ lead.nome_empresa }}</td>
+                        <td>{{ lead.cidade }}</td>
+                        <td><span class="badge neutral">{{ lead._score }}</span></td>
+                        <td><span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% else %}warn{% endif %}">{{ lead._whatsapp_compat|replace('_', ' ')|title }}</span></td>
+                        <td><button class="primary-button run-real-ai-btn" type="button">{% if lead.ia_real_resultado %}Ver laudo{% else %}Validar lead{% endif %}</button></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state-card">
+            <div class="empty-state-icon">🧲</div>
+            <h3>Nenhuma oportunidade encontrada</h3>
+            <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
+            <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

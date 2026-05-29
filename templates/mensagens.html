@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Mensagens | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Abordagem Comercial</p>
+        <h1>Mensagens</h1>
+        <p class="subtitle">Use mensagens sugeridas a partir de laudos já gerados.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="empty-state-card">
+        <div class="empty-state-icon">💬</div>
+        <h3>Nenhuma mensagem criada</h3>
+        <p>Capture ou cadastre leads e gere laudos para criar mensagens de abordagem personalizadas.</p>
+        <div class="form-actions">
+            <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+            <a class="secondary-button" href="{{ url_for('leads_page') }}">Ir para Leads</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

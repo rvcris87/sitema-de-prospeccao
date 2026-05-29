@@ -3,12 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Radar Local IA | Prospecção Inteligente de Clientes</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Radar Local IA | Verificação de Qualidade de Leads</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20260529c') }}">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="landing-body">
-    <!-- Ambient Blur Background -->
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
 
@@ -19,136 +18,86 @@
                 <span class="logo-text">Radar Local <span class="accent-text">IA</span></span>
             </a>
             <nav class="landing-nav">
-                <a href="#como-funciona">Como funciona</a>
-                <a href="#funcionalidades">Funcionalidades</a>
-                <a href="#para-quem">Para quem é</a>
-                <a href="#planos">Planos</a>
+                <a href="#produto">Produto</a>
+                <a href="#problema">A dor</a>
+                <a href="#laudo">Laudo do Lead</a>
+                <a href="#beneficios">Benefícios</a>
             </nav>
             <div class="header-actions">
-                <a href="{{ url_for('login') }}" class="btn btn-outline">Acessar painel</a>
-                <a href="{{ url_for('demo_login') }}" class="btn btn-primary">Ver demonstração</a>
+                <a href="{{ url_for('cadastro') }}" class="btn btn-outline">Criar conta</a>
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Entrar</a>
             </div>
         </div>
     </header>
 
     <main>
-        <!-- Hero Section -->
-        <section class="hero-section">
+        <section id="produto" class="hero-section">
             <div class="container text-center">
-                <div class="hero-tag">✨ Nova Era da Prospecção Local</div>
-                <h1 class="hero-title">
-                    Encontre empresas com potencial para comprar sites usando <span class="text-gradient">análise inteligente</span>.
-                </h1>
+                <div class="hero-tag">✅ Verificar lead primeiro, abordar depois</div>
+                <h1 class="hero-title">Pare de perder tempo com lead ruim.</h1>
                 <p class="hero-subtitle">
-                    Organize leads, descubra empresas sem site próprio, classifique oportunidades com IA e gere abordagens prontas para WhatsApp em segundos.
+                    Verifique se a empresa está ativa, se o WhatsApp é compatível, se o Instagram aponta para site próprio ou terceirizado e se existe oportunidade real antes de abordar.
                 </p>
                 <div class="hero-ctas">
-                    <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-large">Ver demonstração</a>
-                    <a href="{{ url_for('login') }}" class="btn btn-secondary btn-large">Acessar painel</a>
+                    <a href="{{ url_for('cadastro') }}" class="btn btn-primary btn-large">Criar conta grátis</a>
+                    <a href="{{ url_for('login') }}" class="btn btn-secondary btn-large">Ver demo do laudo</a>
+                </div>
+                <div class="hero-laudo-preview">
+                    <h3>Preview de Laudo do Lead</h3>
+                    <div class="hero-laudo-grid">
+                        <span class="badge good">Empresa ativa</span>
+                        <span class="badge good">WhatsApp compatível</span>
+                        <span class="badge bad">Sem site próprio</span>
+                        <span class="badge warn">Oportunidade alta</span>
+                    </div>
+                    <p>Recomendação: <strong>abordar agora</strong> com foco em criação de site próprio e conversão via WhatsApp.</p>
                 </div>
             </div>
         </section>
 
-        <!-- Product Preview Screen -->
-        <section class="preview-section">
-            <div class="container">
-                <div class="glass-preview-container">
-                    <div class="window-header">
-                        <span class="dot red"></span>
-                        <span class="dot yellow"></span>
-                        <span class="dot green"></span>
-                        <span class="window-title">Radar Local IA - Dashboard Demo</span>
-                    </div>
-                    <div class="window-preview-content">
-                        <!-- Mockup dashboard preview grid -->
-                        <div class="preview-metrics">
-                            <div class="p-card"><span>Total Leads</span><strong>89</strong></div>
-                            <div class="p-card"><span>Alto Potencial</span><strong>37</strong></div>
-                            <div class="p-card"><span>Sem Site</span><strong>54</strong></div>
-                        </div>
-                        <div class="preview-lead-table">
-                            <div class="table-row header">
-                                <div>Empresa</div>
-                                <div>Nicho</div>
-                                <div>Qualidade do Site</div>
-                                <div>Potencial</div>
-                            </div>
-                            <div class="table-row">
-                                <div><strong>Barbearia Navalha Prime</strong></div>
-                                <div>Serviços</div>
-                                <div><span class="p-badge danger">Sem site próprio</span></div>
-                                <div><span class="p-badge high">Alto</span></div>
-                            </div>
-                            <div class="table-row">
-                                <div><strong>Odonto Clinic Central</strong></div>
-                                <div>Saúde</div>
-                                <div><span class="p-badge warning">Site desatualizado</span></div>
-                                <div><span class="p-badge medium">Médio</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Como Funciona Section -->
-        <section id="como-funciona" class="landing-section">
+        <section id="problema" class="landing-section">
             <div class="container text-center">
-                <h2 class="section-title">Como Funciona o Radar Local IA?</h2>
-                <p class="section-subtitle">Três passos simples para transformar listagens frias em novos clientes de desenvolvimento de sites.</p>
-                
+                <h2 class="section-title">O problema dos leads ruins</h2>
+                <p class="section-subtitle">A maior perda de tempo não está na abordagem. Está em abordar contato errado.</p>
                 <div class="features-grid">
                     <div class="feature-card">
-                        <div class="feature-icon">🔍</div>
-                        <h3>1. Captura de Leads</h3>
-                        <p>Busque por nicho e cidade diretamente do Google Places. Puxe telefone, endereço, Instagram e dados de avaliação.</p>
+                        <div class="feature-icon">📵</div>
+                        <h3>WhatsApp incerto</h3>
+                        <p>Número sem evidência pública, sem correspondência em bio, site ou fonte confiável.</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">🧠</div>
-                        <h3>2. Análise com IA</h3>
-                        <p>Nossa inteligência artificial analisa a qualidade do site existente, avaliações e canais de contato para classificar a oportunidade.</p>
+                        <div class="feature-icon">🔗</div>
+                        <h3>Presença digital terceirizada</h3>
+                        <p>Instagram aponta para Linktree, Canva, Google Sites, Wix ou cardápio externo em vez de site próprio.</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">💬</div>
-                        <h3>3. Abordagem no WhatsApp</h3>
-                        <p>Gere textos de contato hiper-personalizados baseados nos pontos fracos da empresa e inicie a conversa no WhatsApp em um clique.</p>
+                        <div class="feature-icon">⏳</div>
+                        <h3>Tempo perdido com lead ruim</h3>
+                        <p>Você investe energia em empresa inativa, contato duvidoso e oportunidade fraca.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Funcionalidades Section -->
-        <section id="funcionalidades" class="landing-section alt-bg">
+        <section id="beneficios" class="landing-section alt-bg">
             <div class="container">
                 <div class="row align-center">
                     <div class="col-half">
-                        <h2 class="section-title text-left">Tudo o que você precisa para prospectar em escala</h2>
+                        <h2 class="section-title text-left">Como a verificação funciona</h2>
                         <ul class="features-list">
-                            <li>
-                                <strong>Filtros Avançados:</strong>
-                                Separe leads por prioridade, nicho, cidade e qualidade do site.
-                            </li>
-                            <li>
-                                <strong>Visualização em Funil (CRM):</strong>
-                                Mova o lead através das etapas de Novo, Analisado, Abordado, Proposta Enviada e Fechado.
-                            </li>
-                            <li>
-                                <strong>Análise de Portfólio Local:</strong>
-                                Saiba exatamente quem é a empresa local que precisa de um site e por quê.
-                            </li>
-                            <li>
-                                <strong>Sem Barreiras de API complexas:</strong>
-                                Busca rápida usando nossa integração interna de inteligência e dados de mapas.
-                            </li>
+                            <li><strong>1. Coleta do lead:</strong> nome, nicho, cidade, WhatsApp, Instagram e site.</li>
+                            <li><strong>2. Verificação inteligente:</strong> valida sinais públicos de atividade e consistência dos canais.</li>
+                            <li><strong>3. Classificação técnica:</strong> o sistema marca se o lead é aprovado, com ressalvas ou possível lead ruim.</li>
+                            <li><strong>4. Abordagem sugerida:</strong> a mensagem aparece no final, como consequência do laudo.</li>
                         </ul>
                     </div>
                     <div class="col-half">
                         <div class="glass-card pad-xl highlight-border">
-                            <h3>🤖 Inteligência Artificial Generativa</h3>
-                            <p>Chega de mandar a mesma mensagem genérica de "olá, quer um site?". A nossa IA analisa as falhas de marketing da empresa local e gera um gancho comercial que converte 4x mais.</p>
+                            <h3>📋 Plataforma de Laudo do Lead</h3>
+                            <p>Radar Local IA não é uma ferramenta de mensagem. É uma plataforma para validar qualidade do lead antes da abordagem comercial.</p>
                             <div class="ai-box-example">
-                                <span class="ai-badge">IA RECOMENDA</span>
-                                <p class="ai-quote">"Olá, vi que vocês têm 84 avaliações excelentes no Google mas não possuem site oficial para exibir seu cardápio em Florianópolis. Isso faz vocês perderem até 30% das buscas de turistas..."</p>
+                                <span class="ai-badge">LAUDO</span>
+                                <p class="ai-quote">"Lead válido para abordagem. Empresa aparentemente ativa, WhatsApp compatível e sem site próprio estruturado."</p>
                             </div>
                         </div>
                     </div>
@@ -156,56 +105,72 @@
             </div>
         </section>
 
-        <!-- Para quem é Section -->
-        <section id="para-quem" class="landing-section">
+        <section id="laudo" class="landing-section">
             <div class="container text-center">
-                <h2 class="section-title">Para quem é o Radar Local IA?</h2>
+                <h2 class="section-title">O que o laudo entrega</h2>
                 <div class="target-grid">
                     <div class="target-card">
-                        <h3>👨‍💻 Devs Freelancers</h3>
-                        <p>Descubra clientes rapidamente na sua cidade e ofereça sites de alta performance com copy convincente.</p>
+                        <h3>📱 Verificação de WhatsApp</h3>
+                        <p>Compatível, incerto ou divergente com evidência de onde o número foi encontrado.</p>
                     </div>
                     <div class="target-card">
-                        <h3>🏢 Agências de Marketing</h3>
-                        <p>Alimente seu time de vendas com leads qualificados pré-analisados todos os dias.</p>
+                        <h3>📸 Verificação de Instagram</h3>
+                        <p>Detecta link na bio e classifica tipo do link: domínio próprio, Linktree, Canva, Google Sites, Wix, cardápio ou WhatsApp direto.</p>
                     </div>
                     <div class="target-card">
-                        <h3>📈 Profissionais de SEO/Tráfego</h3>
-                        <p>Encontre negócios locais que já têm site ruim ou desatualizado e venda melhorias de rankeamento e conversão.</p>
+                        <h3>🌐 Verificação de site</h3>
+                        <p>Classifica site próprio, terceirizado, fraco ou ausente e indica oportunidade comercial real.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Planos Section -->
-        <section id="planos" class="landing-section alt-bg">
+        <section id="para-quem" class="landing-section alt-bg">
             <div class="container text-center">
-                <h2 class="section-title">Nossos Planos Beta</h2>
-                <p class="section-subtitle">Escolha o plano ideal para acelerar sua prospecção de vendas.</p>
-                
+                <h2 class="section-title">Para quem é</h2>
+                <div class="target-grid">
+                    <div class="target-card">
+                        <h3>👨‍💻 Devs e freelancers</h3>
+                        <p>Para validar rapidamente se vale abordar e vender site.</p>
+                    </div>
+                    <div class="target-card">
+                        <h3>🏢 Agências</h3>
+                        <p>Para reduzir retrabalho e qualificar leads antes do time comercial agir.</p>
+                    </div>
+                    <div class="target-card">
+                        <h3>📈 Consultores de presença digital</h3>
+                        <p>Para priorizar oportunidades com maior chance de fechamento.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="planos" class="landing-section">
+            <div class="container text-center">
+                <h2 class="section-title">Planos beta</h2>
+                <p class="section-subtitle">Escolha o plano para validar mais leads com qualidade.</p>
                 <div class="pricing-grid">
                     <div class="price-card">
                         <div class="price-title">Beta</div>
                         <div class="price-value">R$ 39,90<span class="price-period">/mês</span></div>
-                        <p class="price-desc">Ideal para freelancers que estão começando.</p>
+                        <p class="price-desc">Para profissionais em fase de validação comercial.</p>
                         <ul class="price-features">
                             <li>Até 100 leads salvos</li>
-                            <li>Até 30 análises de IA por mês</li>
-                            <li>Dashboard de métricas</li>
-                            <li>Mensagens de abordagem prontas</li>
+                            <li>Até 30 laudos de lead por mês</li>
+                            <li>Painel de qualidade do lead</li>
+                            <li>Abordagem sugerida baseada no laudo</li>
                         </ul>
-                        <a href="{{ url_for('demo_login') }}" class="btn btn-secondary btn-full">Começar no Beta</a>
+                        <a href="{{ url_for('demo_login') }}" class="btn btn-secondary btn-full">Acessar demonstração</a>
                     </div>
-                    
                     <div class="price-card popular">
                         <div class="popular-tag">Mais Popular</div>
                         <div class="price-title">Pro</div>
                         <div class="price-value">R$ 79,90<span class="price-period">/mês</span></div>
-                        <p class="price-desc">Para agências e profissionais focados em escala.</p>
+                        <p class="price-desc">Para operação recorrente com volume maior.</p>
                         <ul class="price-features">
                             <li>Até 500 leads salvos</li>
-                            <li>Até 150 análises de IA por mês</li>
-                            <li>CRM integrado com funil</li>
+                            <li>Até 150 laudos de lead por mês</li>
+                            <li>Classificação avançada de oportunidade</li>
                             <li>Exportação em CSV/Excel</li>
                             <li>Suporte prioritário</li>
                         </ul>
@@ -215,19 +180,24 @@
             </div>
         </section>
 
-        <!-- Final CTA Section -->
-        <section class="cta-section">
-            <div class="container text-center">
-                <h2>Pronto para encontrar seus próximos clientes de sites?</h2>
-                <p>Acesse agora mesmo o painel de demonstração e teste a ferramenta.</p>
-                <a href="{{ url_for('demo_login') }}" class="btn btn-primary btn-large">Experimentar Grátis</a>
+        <section class="landing-section cta-dark-wrap">
+            <div class="container">
+                <div class="cta-dark">
+                    <span class="logo-text">Radar Local <span class="accent-text">IA</span></span>
+                    <h3>Comece a abordar só os leads que valem a pena.</h3>
+                    <p>Crie sua conta, importe seus primeiros leads e gere laudos em segundos.</p>
+                    <div class="hero-ctas">
+                        <a href="{{ url_for('cadastro') }}" class="btn btn-primary btn-large">Criar conta grátis</a>
+                        <a href="{{ url_for('demo_login') }}" class="btn btn-outline btn-large">Acessar demo</a>
+                    </div>
+                </div>
             </div>
         </section>
     </main>
 
     <footer class="landing-footer">
         <div class="container">
-            <p>&copy; 2026 Radar Local IA. Todos os direitos reservados. Projeto MVP.</p>
+            <p>&copy; 2026 Radar Local IA. Plataforma de verificação de qualidade de leads.</p>
         </div>
     </footer>
 </body>

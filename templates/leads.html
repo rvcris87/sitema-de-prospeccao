@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Leads | Radar Local IA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Gestão de Leads</p>
+        <h1>Leads</h1>
+        <p class="subtitle">Veja quais leads já estão prontos para abordagem e quais precisam validar.</p>
+    </div>
+    <a class="primary-button" href="{{ url_for('new_lead') }}">Novo lead</a>
+</section>
+
+<section class="panel">
+    <form class="filters" method="get">
+        <label>Nicho
+            <select name="nicho"><option value="">Todos</option>{% for option in filter_options.nichos %}<option value="{{ option }}" {% if filters.nicho == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+        </label>
+        <label>Cidade
+            <select name="cidade"><option value="">Todas</option>{% for option in filter_options.cidades %}<option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+        </label>
+        <label>Potencial
+            <select name="prioridade"><option value="">Todos</option><option value="Alta" {% if filters.prioridade == 'Alta' %}selected{% endif %}>Alta</option><option value="Média" {% if filters.prioridade == 'Média' %}selected{% endif %}>Média</option><option value="Baixa" {% if filters.prioridade == 'Baixa' %}selected{% endif %}>Baixa</option></select>
+        </label>
+        <label>Status
+            <select name="status"><option value="">Todos</option>{% for option in status_options %}<option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+        </label>
+        <div class="filter-actions">
+            <button class="secondary-button" type="submit">Filtrar</button>
+            <a class="ghost-button" href="{{ url_for('leads_page') }}">Limpar</a>
+        </div>
+    </form>
+
+    <div class="table-wrap">
+        <table class="table-clean">
+            <thead>
+                <tr>
+                    <th>Empresa</th><th>Cidade</th><th>Score</th><th>WhatsApp</th><th>Site</th><th>Laudo</th><th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads %}
+                <tr class="lead-card"
+                    data-lead-id="{{ lead.id }}"
+                    data-nome="{{ lead.nome_empresa }}"
+                    data-nicho="{{ lead.nicho }}"
+                    data-cidade="{{ lead.cidade }}"
+                    data-site-qualidade="{{ lead.qualidade_site }}"
+                    data-site-url="{{ lead.site or '' }}"
+                    data-instagram="{{ lead.instagram or '' }}"
+                    data-telefone="{{ lead.telefone_whatsapp or '' }}"
+                    data-ai-analisado="{{ lead.ai_analisado }}"
+                    data-ai-potencial="{{ lead.ai_potencial or '' }}"
+                    data-ai-motivo="{{ lead.ai_motivo or '' }}"
+                    data-ai-sugestao="{{ lead.ai_sugestao or '' }}"
+                    data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}'
+                    data-ia-real-score="{{ lead.ia_real_score or 0 }}"
+                    data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}"
+                    data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}'
+                    data-analisado-em="{{ lead.analisado_em or '' }}">
+                    <td>{{ lead.nome_empresa }}</td>
+                    <td>{{ lead.cidade }}</td>
+                    <td><span class="badge neutral">Score {{ lead._score }}</span></td>
+                    <td>
+                        <span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% elif lead._whatsapp_compat == 'incerto' %}warn{% else %}bad{% endif %}">
+                            {% if lead._whatsapp_compat == "compativel" %}WhatsApp verificado{% elif lead._whatsapp_compat == "incerto" %}WhatsApp incerto{% else %}WhatsApp incompatível{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if lead._site_tipo in ['site_proprio','proprio'] %}good{% elif lead._site_tipo in ['site_terceirizado','cardapio_plataforma_externa'] %}warn{% else %}bad{% endif %}">
+                            {% if lead._site_tipo in ["site_proprio","proprio"] %}Tem site{% elif lead._site_tipo in ["site_terceirizado","cardapio_plataforma_externa"] %}Site fraco{% else %}Sem site{% endif %}
+                        </span>
+                    </td>
+                    <td><span class="badge {% if lead.ia_real_resultado %}good{% else %}warn{% endif %}">{% if lead.ia_real_resultado %}Gerado{% else %}Pendente{% endif %}</span></td>
+                    <td class="actions-inline">
+                        <button class="primary-button run-real-ai-btn" type="button">{% if lead.ia_real_resultado %}Ver laudo{% else %}Validar lead{% endif %}</button>
+                        <details class="table-actions-menu">
+                            <summary class="ghost-button">Mais ações</summary>
+                            <div class="table-actions-dropdown">
+                                <button class="secondary-button revalidate-lead-btn" type="button">Revalidar</button>
+                                <a class="ghost-button" href="{{ url_for('edit_lead', lead_id=lead.id) }}">Editar</a>
+                                <form method="post" action="{{ url_for('remove_lead', lead_id=lead.id) }}" data-confirm="Excluir este lead?" class="delete-form">
+                                    <button class="danger-button" type="submit">Excluir</button>
+                                </form>
+                            </div>
+                        </details>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7">
+                    <div class="empty-state-card">
+                        <div class="empty-state-icon">🧭</div>
+                        <h3>Nenhum lead cadastrado ainda</h3>
+                        <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
+                        <a href="{{ url_for('buscar_leads') }}" class="primary-button">Capturar leads</a>
+                    </div>
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

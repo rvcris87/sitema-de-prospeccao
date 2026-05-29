@@ -1,6 +1,7 @@
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -9,19 +10,8 @@ from database import generate_message
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
-GOOGLE_PLACES_ENDPOINT = "https://places.googleapis.com/v1/places:searchText"
-
-# Para mudar os campos buscados na API, edite este FieldMask.
-GOOGLE_PLACES_FIELD_MASK = (
-    "places.id,"
-    "places.displayName,"
-    "places.formattedAddress,"
-    "places.nationalPhoneNumber,"
-    "places.websiteUri,"
-    "places.rating,"
-    "places.userRatingCount,"
-    "places.googleMapsUri"
-)
+APIFY_BASE_URL = "https://api.apify.com/v2"
+DEFAULT_APIFY_ACTOR_ID = "compass/crawler-google-places"
 
 
 def load_env_file():
@@ -38,8 +28,12 @@ def load_env_file():
 
 
 def get_google_places_api_key():
-    """Configure the key in .env: GOOGLE_PLACES_API_KEY=sua_chave_aqui."""
+    """Compatibilidade antiga: agora usa APIFY_API_TOKEN no .env."""
     load_env_file()
+    token = os.getenv("APIFY_API_TOKEN", "").strip()
+    if token:
+        return token
+    # fallback legado para não quebrar ambientes antigos
     return os.getenv("GOOGLE_PLACES_API_KEY", "").strip()
 
 
@@ -53,30 +47,27 @@ def normalize_limit(value, default=20, maximum=20):
 
 
 def search_google_places(nicho, cidade, limite):
-    api_key = get_google_places_api_key()
-    if not api_key:
+    api_token = get_google_places_api_key()
+    if not api_token:
         return {
             "ok": False,
-            "message": "Configure a chave no arquivo .env usando GOOGLE_PLACES_API_KEY=sua_chave_aqui.",
+            "message": "Configure o token no arquivo .env usando APIFY_API_TOKEN=seu_token.",
             "leads": [],
         }
 
+    actor_id = os.getenv("APIFY_GOOGLE_MAPS_ACTOR_ID", DEFAULT_APIFY_ACTOR_ID).strip()
+    query = f"{nicho} em {cidade}, Brasil"
     payload = {
-        "textQuery": f"{nicho} em {cidade}",
-        "languageCode": "pt-BR",
-        "regionCode": "BR",
-        "maxResultCount": normalize_limit(limite),
+        "searchStringsArray": [query],
+        "maxCrawledPlacesPerSearch": normalize_limit(limite),
+        "language": "pt-BR",
     }
-    request = urllib.request.Request(
-        GOOGLE_PLACES_ENDPOINT,
-        data=json.dumps(payload).encode("utf-8"),
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": api_key,
-            "X-Goog-FieldMask": GOOGLE_PLACES_FIELD_MASK,
-        },
+    endpoint = (
+        f"{APIFY_BASE_URL}/acts/{urllib.parse.quote(actor_id, safe='/')}"
+        f"/run-sync-get-dataset-items?token={urllib.parse.quote(api_token)}"
     )
+    request = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"), method="POST")
+    request.add_header("Content-Type", "application/json")
 
     try:
         with urllib.request.urlopen(request, timeout=25) as response:
@@ -85,13 +76,13 @@ def search_google_places(nicho, cidade, limite):
         detail = error.read().decode("utf-8", errors="ignore")
         return {
             "ok": False,
-            "message": f"A Google Places API retornou erro {error.code}. {extract_error_message(detail)}",
+            "message": f"A API da Apify retornou erro {error.code}. {extract_error_message(detail)}",
             "leads": [],
         }
     except urllib.error.URLError as error:
         return {
             "ok": False,
-            "message": f"Não foi possível conectar à Google Places API: {error.reason}",
+            "message": f"Não foi possível conectar à API da Apify: {error.reason}",
             "leads": [],
         }
     except TimeoutError:
@@ -101,8 +92,8 @@ def search_google_places(nicho, cidade, limite):
             "leads": [],
         }
 
-    places = data.get("places", [])
-    leads = [place_to_lead(place, nicho, cidade) for place in places]
+    items = data if isinstance(data, list) else []
+    leads = [place_to_lead(item, nicho, cidade) for item in items]
     return {
         "ok": True,
         "message": "" if leads else "Nenhum lead encontrado para essa busca.",
@@ -115,21 +106,26 @@ def extract_error_message(raw_detail):
         detail = json.loads(raw_detail)
     except json.JSONDecodeError:
         return raw_detail[:220]
-    return detail.get("error", {}).get("message", "Verifique a chave, billing e permissões da API.")
+    if isinstance(detail, dict):
+        if detail.get("error", {}).get("message"):
+            return detail["error"]["message"]
+        if detail.get("message"):
+            return detail["message"]
+    return "Verifique APIFY_API_TOKEN e APIFY_GOOGLE_MAPS_ACTOR_ID no .env."
 
 
 def place_to_lead(place, nicho, cidade):
-    name = place.get("displayName", {}).get("text", "Empresa sem nome")
-    phone = place.get("nationalPhoneNumber", "")
-    site = place.get("websiteUri", "")
-    address = place.get("formattedAddress", "")
-    rating = place.get("rating")
-    rating_count = place.get("userRatingCount")
+    name = place.get("title") or place.get("name") or "Empresa sem nome"
+    phone = place.get("phone") or place.get("phoneUnformatted") or ""
+    site = place.get("website") or ""
+    address = place.get("address") or place.get("street") or ""
+    rating = place.get("totalScore")
+    rating_count = place.get("reviewsCount")
     quality = "Site encontrado" if site else "Não tem site"
 
     if site:
         prioridade = "Baixa"
-        diagnostico = "Baixa prioridade: empresa encontrada no Google Places já possui site."
+        diagnostico = "Baixa prioridade: empresa encontrada pela Apify já possui site."
     elif phone:
         prioridade = "Alta"
         diagnostico = "Alta prioridade: empresa encontrada sem site e com telefone disponível."
@@ -139,18 +135,18 @@ def place_to_lead(place, nicho, cidade):
 
     observacoes = build_observations(address, rating, rating_count)
     lead = {
-        "place_id": place.get("id", ""),
+        "place_id": place.get("placeId", "") or place.get("id", ""),
         "nome_empresa": name,
         "nicho": nicho,
         "cidade": cidade,
         "telefone_whatsapp": phone,
         "instagram": "",
         "site": site,
-        "google_maps_url": place.get("googleMapsUri", ""),
+        "google_maps_url": place.get("url", "") or place.get("googleMapsUri", ""),
         "endereco": address,
         "avaliacao": rating,
         "qtd_avaliacoes": rating_count,
-        "origem_lead": "Google Places",
+        "origem_lead": "Apify",
         "observacoes": observacoes,
         "status": "Novo",
         "qualidade_site": quality,
