@@ -1,4 +1,5 @@
 import os
+import traceback
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -100,7 +101,12 @@ def landing():
 
 @app.route("/health")
 def health():
-    return {"ok": True, "service": "sitema-de-prospeccao"}, 200
+    db_error = app.config.get("DB_INIT_ERROR")
+    return {
+        "ok": db_error is None,
+        "service": "sitema-de-prospeccao",
+        "db_init_error": db_error,
+    }, 200 if db_error is None else 500
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -715,8 +721,16 @@ def api_test_apify_connection():
         return jsonify({"ok": False, "message": f"Erro inesperado ao conectar com Apify: {str(e)}"}), 500
 
 
-# Iniciar DB na carga do modulo para garantir tabelas
-init_db()
+# Iniciar DB na carga do modulo para garantir tabelas.
+# Em produção, não derruba o processo inteiro se houver falha:
+# expõe o motivo em /health para diagnóstico.
+try:
+    init_db()
+    app.config["DB_INIT_ERROR"] = None
+except Exception as exc:
+    app.config["DB_INIT_ERROR"] = f"{type(exc).__name__}: {exc}"
+    print("ERRO AO INICIAR BANCO:", app.config["DB_INIT_ERROR"])
+    print(traceback.format_exc())
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
