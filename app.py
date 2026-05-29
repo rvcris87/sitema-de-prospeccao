@@ -4,29 +4,34 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, url
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from apify_importer import import_apify_csv
-from database import (
-    SITE_QUALITY_OPTIONS,
-    STATUS_OPTIONS,
-    create_lead_if_not_duplicate,
-    create_lead,
-    delete_lead,
-    distinct_values,
-    get_lead,
-    init_db,
-    list_leads,
-    normalize_instagram,
-    normalize_url,
-    only_digits,
-    prepare_lead_payload,
-    update_lead,
-    whatsapp_link,
-    get_connection,
-)
-from google_places import normalize_limit, search_google_places
 from functools import wraps
 import json
-from ia_real_service import execute_real_ai_analysis, get_current_limit_info
+
+BOOT_IMPORT_ERROR = None
+try:
+    from apify_importer import import_apify_csv
+    from database import (
+        SITE_QUALITY_OPTIONS,
+        STATUS_OPTIONS,
+        create_lead_if_not_duplicate,
+        create_lead,
+        delete_lead,
+        distinct_values,
+        get_lead,
+        init_db,
+        list_leads,
+        normalize_instagram,
+        normalize_url,
+        only_digits,
+        prepare_lead_payload,
+        update_lead,
+        whatsapp_link,
+        get_connection,
+    )
+    from google_places import normalize_limit, search_google_places
+    from ia_real_service import execute_real_ai_analysis, get_current_limit_info
+except Exception as exc:
+    BOOT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "radar-local-secret-key-123")
@@ -102,11 +107,13 @@ def landing():
 @app.route("/health")
 def health():
     db_error = app.config.get("DB_INIT_ERROR")
+    import_error = BOOT_IMPORT_ERROR
     return {
-        "ok": db_error is None,
+        "ok": db_error is None and import_error is None,
         "service": "sitema-de-prospeccao",
         "db_init_error": db_error,
-    }, 200 if db_error is None else 500
+        "boot_import_error": import_error,
+    }, 200 if (db_error is None and import_error is None) else 500
 
 
 @app.route("/login", methods=["GET", "POST"])
