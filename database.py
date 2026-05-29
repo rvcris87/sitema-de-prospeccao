@@ -17,7 +17,9 @@ def _resolve_database_path():
         # If app folder is writable, keep local behavior.
         with open(BASE_DIR / ".write_test", "w", encoding="utf-8") as f:
             f.write("ok")
-        (BASE_DIR / ".write_test").unlink(missing_ok=True)
+        test_file = BASE_DIR / ".write_test"
+        if test_file.exists():
+            test_file.unlink()
         return local_db
     except Exception:
         # Fallback for platforms where app dir is read-only.
