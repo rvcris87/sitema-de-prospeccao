@@ -1,4 +1,5 @@
-{# Linhas da tabela de leads. Usado por leads.html e pelas APIs (/api/leads, status, detalhe). #}
+{# Linhas da tabela de leads. Usado por leads.html, index.html e pelas APIs (/api/leads, status, detalhe). #}
+{% from "partials/macros.html" import score %}
 {% for lead in leads %}
 <tr class="lead-row" data-lead-id="{{ lead.id }}" data-status="{{ lead.status or '' }}" tabindex="0" aria-label="Abrir detalhes de {{ lead.nome_empresa }}">
     <td class="col-empresa">
@@ -6,16 +7,7 @@
         <span class="lead-sub">{{ lead.nicho or 'Nicho não informado' }}</span>
     </td>
     <td class="col-cidade">{{ lead.cidade or '—' }}</td>
-    <td class="col-score">
-        {% if lead._score_nivel == 'nenhum' %}
-        <span class="score score-nenhum" title="Lead ainda não validado">—</span>
-        {% else %}
-        <span class="score score-{{ lead._score_nivel }}">
-            <b>{{ lead._score }}</b>
-            <span class="score-bar" aria-hidden="true"><i style="width: {{ [lead._score, 100]|min }}%"></i></span>
-        </span>
-        {% endif %}
-    </td>
+    <td class="col-score">{{ score(lead) }}</td>
     <td class="col-status">
         <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}" aria-label="Status do funil de {{ lead.nome_empresa }}">
             {% for option in status_options %}<option value="{{ option }}" {% if lead.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}

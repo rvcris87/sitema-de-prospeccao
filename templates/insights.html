@@ -3,27 +3,32 @@
 {% block title %}Insights da IA | Radar Local IA{% endblock %}
 
 {% block content %}
-<section class="page-header">
+<section class="page-header page-header-compact">
     <div>
         <p class="eyebrow">Inteligência Estratégica</p>
         <h1>Insights da IA</h1>
-        <p class="subtitle">Direções comerciais com base nos sinais de qualidade dos leads.</p>
+        <p class="subtitle">Frases calculadas a partir dos seus leads e laudos reais.</p>
     </div>
 </section>
 
 <section class="panel">
-    {% if leads %}
+    {% if insights %}
     <div class="capture-steps">
-        <article class="capture-step"><b>Conversão</b><span>Negócios com WhatsApp compatível e Instagram ativo convertem melhor.</span></article>
-        <article class="capture-step"><b>Diferenciação</b><span>Empresas sem site próprio têm maior oportunidade de venda imediata.</span></article>
-        <article class="capture-step"><b>Prioridade</b><span>Foque primeiro nos leads de alta prioridade com laudo aprovado.</span></article>
+        {% for item in insights %}
+        <article class="capture-step"><b>{{ item.titulo }}</b><span>{{ item.texto }}</span></article>
+        {% endfor %}
     </div>
     {% else %}
     <div class="empty-state-card">
         <div class="empty-state-icon">{{ icon('sparkles') }}</div>
         <h3>Nenhum insight disponível</h3>
+        {% if metrics.leads_importados %}
+        <p>Você tem {{ metrics.leads_importados }} leads, mas nenhum foi analisado ainda. Valide leads com IA para gerar insights.</p>
+        <a class="primary-button" href="{{ url_for('leads_page') }}">Ir para Leads</a>
+        {% else %}
         <p>Assim que houver leads validados, os insights estratégicos aparecem aqui.</p>
         <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+        {% endif %}
     </div>
     {% endif %}
 </section>

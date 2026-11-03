@@ -186,7 +186,7 @@ def demo_login():
     session["user_id"] = demo_user["id"]
     session["user_email"] = demo_user["email"]
     session["user_name"] = demo_user["nome"]
-    session["user_plan"] = "Plano Elite"
+    session["user_plan"] = demo_user["plano"]
     flash("Acesso de demonstração ativado!", "success")
     return redirect(url_for("dashboard"))
 
@@ -324,6 +324,10 @@ def get_metrics(all_leads=None):
         "respostas_recebidas": 0,
         "leads_com_ressalvas": 0,
         "sites_terceirizados": 0,
+        # Só entre leads analisados: o laudo não encontrou site (nada ou só rede social).
+        "sem_site_proprio": 0,
+        "prioridade_media": 0,
+        "prioridade_baixa": 0,
     }
 
     for lead in all_leads:
@@ -348,12 +352,109 @@ def get_metrics(all_leads=None):
             metrics["leads_descartados"] += 1
         if data.get("tipo_site") in ("site_terceirizado", "cardapio_plataforma_externa"):
             metrics["sites_terceirizados"] += 1
+        if data.get("tipo_site") in SITE_TIPOS_SEM_SITE:
+            metrics["sem_site_proprio"] += 1
         if data.get("lead_aprovado_abordagem") == "sim":
             metrics["leads_aprovados"] += 1
         if data.get("prioridade") == "alta":
             metrics["oportunidades_altas"] += 1
+        if data.get("prioridade") == "media":
+            metrics["prioridade_media"] += 1
+        if data.get("prioridade") == "baixa":
+            metrics["prioridade_baixa"] += 1
 
     return metrics
+
+
+SITE_TIPOS_SEM_SITE = ("nao_encontrado", "rede_social")
+
+
+def percentual(parte, total):
+    return round(parte * 100 / total) if total else 0
+
+
+def get_prioridade_por_cidade(all_leads, limite=6):
+    """Leads analisados / total por cidade, das cidades com mais leads."""
+    por_cidade = {}
+    for lead in all_leads:
+        cidade = (lead.get("cidade") or "").strip() or "Sem cidade"
+        item = por_cidade.setdefault(cidade, {"cidade": cidade, "total": 0, "analisados": 0})
+        item["total"] += 1
+        if lead.get("_validado"):
+            item["analisados"] += 1
+    cidades = sorted(por_cidade.values(), key=lambda c: (-c["total"], c["cidade"]))[:limite]
+    for item in cidades:
+        item["pct"] = percentual(item["analisados"], item["total"])
+    return cidades
+
+
+def _mais_comum(valores):
+    contagem = Counter(v for v in valores if v)
+    return contagem.most_common(1)[0] if contagem else None
+
+
+def gerar_insights(all_leads, metrics):
+    """Frases simples calculadas dos leads reais. Lista vazia se não há laudos."""
+    total = metrics["leads_importados"]
+    analisados = metrics["leads_validados"]
+    if not analisados:
+        return []
+
+    insights = [{
+        "titulo": "Cobertura",
+        "texto": f"{analisados} de {total} leads ({percentual(analisados, total)}%) já têm laudo.",
+    }]
+
+    sem_site = [l for l in all_leads if l.get("_validado") and l.get("_site_tipo") in SITE_TIPOS_SEM_SITE]
+    if sem_site:
+        texto = f"{len(sem_site)} dos {analisados} leads analisados não têm site próprio: público direto para venda de site."
+        nicho = _mais_comum((l.get("nicho") or "").strip() for l in sem_site)
+        if nicho and nicho[1] > 1:
+            texto += f" O nicho que mais aparece é {nicho[0]} ({nicho[1]})."
+        insights.append({"titulo": "Oportunidade", "texto": texto})
+
+    prontos = [l for l in all_leads if l.get("_validado") and l.get("_whatsapp_compat") == "compativel"]
+    if prontos:
+        novos = sum(1 for l in prontos if l.get("status") in ("Novo", "Analisado"))
+        texto = f"{len(prontos)} leads têm WhatsApp verificado."
+        if novos:
+            texto += f" {novos} ainda não receberam mensagem."
+        insights.append({"titulo": "Abordagem", "texto": texto})
+
+    aprovados = [l for l in all_leads if (l.get("_laudo") or {}).get("lead_aprovado_abordagem") == "sim"]
+    cidade = _mais_comum((l.get("cidade") or "").strip() for l in aprovados)
+    if cidade:
+        insights.append({
+            "titulo": "Cidade",
+            "texto": f"{cidade[0]} concentra mais leads aprovados para abordagem ({cidade[1]} de {len(aprovados)}).",
+        })
+
+    pendentes = total - analisados
+    if pendentes:
+        insights.append({
+            "titulo": "Próximo passo",
+            "texto": f"{pendentes} leads ainda estão sem laudo. Valide-os para ampliar o funil.",
+        })
+    return insights
+
+
+def leads_recentes(all_leads, limite=5):
+    return sorted(all_leads, key=lambda l: (str(l.get("created_at") or ""), l.get("id") or 0), reverse=True)[:limite]
+
+
+def _data_analise(lead):
+    # analisado_em é gravado como "dd/mm/aaaa HH:MM"; converte para ordenar.
+    try:
+        data, hora = (lead.get("analisado_em") or "").split(" ")
+        dia, mes, ano = data.split("/")
+        return f"{ano}-{mes}-{dia} {hora}"
+    except ValueError:
+        return ""
+
+
+def laudos_recentes(all_leads, limite=5):
+    analisados = [l for l in all_leads if l.get("_validado")]
+    return sorted(analisados, key=lambda l: (_data_analise(l), l.get("id") or 0), reverse=True)[:limite]
 
 
 def get_filter_options():
@@ -489,21 +590,18 @@ def render_lead_row(lead):
 @app.route("/app")
 @login_required
 def dashboard():
-    filters = get_filters()
+    # Uma leitura só: métricas, cidades, insights e tabelas saem da mesma lista.
     all_leads = [processar_lead(row) for row in list_leads()]
-    if has_active_filters(filters):
-        leads = get_leads_filtrados(filters)
-    else:
-        # Sem filtro, a lista do dashboard é a mesma das métricas: reaproveita a leitura.
-        leads = all_leads
+    metrics = get_metrics(all_leads)
     return render_template(
         "index.html",
         active_page="dashboard",
-        leads=leads,
-        filters=filters,
-        filter_options=get_filter_options(),
+        metrics=metrics,
+        cidades=get_prioridade_por_cidade(all_leads),
+        insights=gerar_insights(all_leads, metrics),
+        leads_recentes=leads_recentes(all_leads),
+        laudos_recentes=laudos_recentes(all_leads),
         status_options=STATUS_OPTIONS,
-        metrics=get_metrics(all_leads),
     )
 
 
@@ -626,7 +724,14 @@ def oportunidades_page():
 @app.route("/insights")
 @login_required
 def insights_page():
-    return render_template("insights.html", active_page="insights", leads=get_leads_filtrados())
+    all_leads = [processar_lead(row) for row in list_leads()]
+    metrics = get_metrics(all_leads)
+    return render_template(
+        "insights.html",
+        active_page="insights",
+        insights=gerar_insights(all_leads, metrics),
+        metrics=metrics,
+    )
 
 
 @app.route("/configuracoes")
@@ -958,6 +1063,26 @@ def api_test_apify_connection():
         return jsonify({"ok": False, "message": f"Erro de API do Apify (HTTP {he.code}): {he.reason}"}), 400
     except Exception as e:
         return jsonify({"ok": False, "message": f"Erro inesperado ao conectar com Apify: {str(e)}"}), 500
+
+
+@app.errorhandler(500)
+def erro_interno(error):
+    # O Flask já registra o traceback completo no terminal ("Exception on ... [GET]")
+    # antes de chamar este handler; aqui só marcamos a rota e mostramos a página amigável.
+    original = getattr(error, "original_exception", None)
+    app.logger.error(
+        "Erro 500 em %s %s: %s (traceback completo acima)",
+        request.method,
+        request.path,
+        f"{type(original).__name__}: {original}" if original else error,
+    )
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "message": "Erro interno no servidor. Tente novamente."}), 500
+    try:
+        return render_template("errors/500.html"), 500
+    except Exception:
+        # Se até a página de erro falhar, devolve HTML mínimo.
+        return "<h1>Erro interno</h1><p>Tente recarregar a página.</p>", 500
 
 
 # Iniciar DB na carga do modulo para garantir tabelas.

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/macros.html" import score %}
 
 {% block title %}Oportunidades | Radar Local IA{% endblock %}
 
@@ -23,7 +24,7 @@
                     <tr class="lead-card" data-lead-id="{{ lead.id }}" data-nome="{{ lead.nome_empresa }}" data-nicho="{{ lead.nicho }}" data-cidade="{{ lead.cidade }}" data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}' data-ia-real-score="{{ lead.ia_real_score or 0 }}" data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}" data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}' data-analisado-em="{{ lead.analisado_em or '' }}" data-site-qualidade="{{ lead.qualidade_site }}" data-site-url="{{ lead.site or '' }}" data-instagram="{{ lead.instagram or '' }}" data-telefone="{{ lead.telefone_whatsapp or '' }}" data-ai-analisado="{{ lead.ai_analisado }}" data-ai-potencial="{{ lead.ai_potencial or '' }}" data-ai-motivo="{{ lead.ai_motivo or '' }}" data-ai-sugestao="{{ lead.ai_sugestao or '' }}">
                         <td>{{ lead.nome_empresa }}</td>
                         <td>{{ lead.cidade }}</td>
-                        <td><span class="badge neutral">{{ lead._score }}</span></td>
+                        <td>{{ score(lead) }}</td>
                         <td><span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% else %}warn{% endif %}">{{ lead._whatsapp_compat|replace('_', ' ')|title }}</span></td>
                         <td><button class="primary-button run-real-ai-btn" type="button">{% if lead.ia_real_resultado %}Ver laudo{% else %}Validar lead{% endif %}</button></td>
                     </tr>

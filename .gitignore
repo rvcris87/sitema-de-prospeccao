@@ -6,3 +6,5 @@ leads.db
 .venv/
 venv/
 instance/
+leads.db-wal
+leads.db-shm

@@ -43,36 +43,53 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // Um lead pode aparecer em mais de uma tabela na mesma página (ex.: Dashboard).
+    function findLeadRows(leadId) {
+        return [...document.querySelectorAll(`.lv-table tr.lead-row[data-lead-id="${leadId}"]`)];
+    }
+
     function findLeadRow(leadId) {
-        return document.querySelector(`#leadsTableBody tr.lead-row[data-lead-id="${leadId}"]`);
+        return findLeadRows(leadId)[0] || null;
     }
 
     function replaceLeadRow(leadId, html) {
-        const row = findLeadRow(leadId);
-        if (!row) return null;
         const template = document.createElement("template");
         template.innerHTML = html.trim();
-        const newRow = template.content.querySelector("tr.lead-row");
-        if (!newRow) return null;
-        if (row.classList.contains("is-active")) newRow.classList.add("is-active");
-        row.replaceWith(newRow);
-        return newRow;
+        const source = template.content.querySelector("tr.lead-row");
+        if (!source) return;
+        findLeadRows(leadId).forEach(row => {
+            const newRow = source.cloneNode(true);
+            if (row.classList.contains("is-active")) newRow.classList.add("is-active");
+            row.replaceWith(newRow);
+        });
     }
 
+    // Tabelas antigas: copia o título da coluna para data-label (usado no layout de celular).
+    document.querySelectorAll("table.table-clean").forEach(table => {
+        const labels = [...table.querySelectorAll("thead th")].map(th => th.textContent.trim());
+        table.querySelectorAll("tbody tr").forEach(tr => {
+            [...tr.children].forEach((td, index) => {
+                if (labels[index] && !td.dataset.label) td.dataset.label = labels[index];
+            });
+        });
+    });
+
     // -------------------------------------------------------------
-    // 1b. Tela de Leads: filtros sem recarregar, chips de status e painel lateral
+    // 1b. Tabelas de leads: painel lateral (qualquer página com #leadDrawer)
+    //     e, na tela de Leads, filtros sem recarregar e chips de status
     // -------------------------------------------------------------
     const leadsPage = setupLeadsPage();
 
     function setupLeadsPage() {
+        const drawer = document.getElementById("leadDrawer");
+        if (!drawer) return null;
         const form = document.getElementById("leadsFilterForm");
         const tableBody = document.getElementById("leadsTableBody");
-        if (!form || !tableBody) return null;
 
-        const statusSelect = form.querySelector('select[name="status"]');
-        const searchInput = form.querySelector('input[name="q"]');
+        const statusSelect = form?.querySelector('select[name="status"]');
+        const searchInput = form?.querySelector('input[name="q"]');
         const chipsContainer = document.getElementById("leadsStatusChips");
-        const statusOrder = [...statusSelect.options].map(option => option.value).filter(Boolean);
+        const statusOrder = statusSelect ? [...statusSelect.options].map(option => option.value).filter(Boolean) : [];
         let counts = {};
         try {
             counts = JSON.parse(document.getElementById("leadsInitialCounts")?.textContent || "{}");
@@ -80,67 +97,78 @@ document.addEventListener("DOMContentLoaded", () => {
             counts = {};
         }
 
-        // ---------- Filtros ----------
-        let filterRequestId = 0;
-        let searchTimer = null;
+        // ---------- Filtros (só na tela de Leads) ----------
+        if (form && tableBody) setupFilters();
 
-        const applyFilters = async () => {
-            const params = new URLSearchParams();
-            new FormData(form).forEach((value, key) => {
-                if (String(value).trim() !== "") params.set(key, String(value).trim());
-            });
-            const query = params.toString();
-            // Mantém os filtros na URL para que F5 preserve o resultado.
-            history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
-            renderChips();
+        function setupFilters() {
+            let filterRequestId = 0;
+            let searchTimer = null;
 
-            const requestId = ++filterRequestId;
-            tableBody.classList.add("is-loading");
-            try {
-                const response = await fetch(`${form.dataset.apiUrl}?${query}`, {
-                    headers: { "Accept": "application/json" }
+            const applyFilters = async () => {
+                const params = new URLSearchParams();
+                new FormData(form).forEach((value, key) => {
+                    if (String(value).trim() !== "") params.set(key, String(value).trim());
                 });
-                const result = await response.json();
-                // Ignora respostas antigas se o usuário trocou o filtro de novo.
-                if (requestId !== filterRequestId) return;
-                if (response.ok && result.ok) {
-                    tableBody.innerHTML = result.html;
-                    counts = result.contagens || counts;
-                    renderChips();
-                    markActiveRow();
-                } else {
-                    showToast("Erro ao filtrar leads.", "error");
+                const query = params.toString();
+                // Mantém os filtros na URL para que F5 preserve o resultado.
+                history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+                renderChips();
+
+                const requestId = ++filterRequestId;
+                tableBody.classList.add("is-loading");
+                try {
+                    const response = await fetch(`${form.dataset.apiUrl}?${query}`, {
+                        headers: { "Accept": "application/json" }
+                    });
+                    const result = await response.json();
+                    // Ignora respostas antigas se o usuário trocou o filtro de novo.
+                    if (requestId !== filterRequestId) return;
+                    if (response.ok && result.ok) {
+                        tableBody.innerHTML = result.html;
+                        counts = result.contagens || counts;
+                        renderChips();
+                        markActiveRow();
+                    } else {
+                        showToast("Erro ao filtrar leads.", "error");
+                    }
+                } catch (error) {
+                    if (requestId === filterRequestId) showToast("Erro de comunicação com o servidor.", "error");
+                } finally {
+                    if (requestId === filterRequestId) tableBody.classList.remove("is-loading");
                 }
-            } catch (error) {
-                if (requestId === filterRequestId) showToast("Erro de comunicação com o servidor.", "error");
-            } finally {
-                if (requestId === filterRequestId) tableBody.classList.remove("is-loading");
-            }
-        };
+            };
 
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-            applyFilters();
-        });
-        form.addEventListener("change", (event) => {
-            if (event.target === searchInput) return; // a busca já filtra pelo "input"
-            applyFilters();
-        });
-        searchInput?.addEventListener("input", () => {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(applyFilters, 300);
-        });
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                applyFilters();
+            });
+            form.addEventListener("change", (event) => {
+                if (event.target === searchInput) return; // a busca já filtra pelo "input"
+                applyFilters();
+            });
+            searchInput?.addEventListener("input", () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyFilters, 300);
+            });
 
-        form.querySelector("[data-clear-filters]")?.addEventListener("click", (event) => {
-            event.preventDefault();
-            form.querySelectorAll("select").forEach(select => { select.value = ""; });
-            if (searchInput) searchInput.value = "";
-            applyFilters();
-        });
+            form.querySelector("[data-clear-filters]")?.addEventListener("click", (event) => {
+                event.preventDefault();
+                form.querySelectorAll("select").forEach(select => { select.value = ""; });
+                if (searchInput) searchInput.value = "";
+                applyFilters();
+            });
+
+            chipsContainer?.addEventListener("click", (event) => {
+                const chip = event.target.closest(".lv-chip");
+                if (!chip) return;
+                statusSelect.value = chip.dataset.status === statusSelect.value ? "" : chip.dataset.status;
+                applyFilters();
+            });
+        }
 
         // ---------- Chips de contagem por status ----------
         function renderChips() {
-            if (!chipsContainer) return;
+            if (!chipsContainer || !statusSelect) return;
             const active = statusSelect.value;
             const chips = [{ status: "", label: "Todos", count: counts._total ?? 0 }];
             statusOrder.forEach(status => {
@@ -154,17 +182,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 </button>`).join("");
         }
 
-        chipsContainer?.addEventListener("click", (event) => {
-            const chip = event.target.closest(".lv-chip");
-            if (!chip) return;
-            statusSelect.value = chip.dataset.status === statusSelect.value ? "" : chip.dataset.status;
-            applyFilters();
-        });
-
         renderChips();
 
         // ---------- Painel lateral (drawer) ----------
-        const drawer = document.getElementById("leadDrawer");
         const backdrop = document.getElementById("leadDrawerBackdrop");
         const drawerContent = document.getElementById("leadDrawerContent");
         const closeButton = document.getElementById("leadDrawerClose");
@@ -181,8 +201,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         function markActiveRow() {
-            tableBody.querySelectorAll("tr.lead-row.is-active").forEach(row => row.classList.remove("is-active"));
-            if (currentLeadId) findLeadRow(currentLeadId)?.classList.add("is-active");
+            document.querySelectorAll(".lv-table tr.lead-row.is-active").forEach(row => row.classList.remove("is-active"));
+            if (currentLeadId) findLeadRows(currentLeadId).forEach(row => row.classList.add("is-active"));
         }
 
         async function fetchLead(leadId) {
@@ -250,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
             leadId = String(leadId);
             if (validating.has(leadId)) return;
             validating.add(leadId);
-            findLeadRow(leadId)?.classList.add("is-validating");
+            findLeadRows(leadId).forEach(row => row.classList.add("is-validating"));
             if (currentLeadId === leadId) {
                 showSkeleton("Analisando presença digital com IA… isso pode levar até 1 minuto.");
             }
@@ -280,7 +300,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 await refreshLead(leadId);
             } catch (error) {
-                findLeadRow(leadId)?.classList.remove("is-validating");
+                findLeadRows(leadId).forEach(row => row.classList.remove("is-validating"));
             }
             showToast(message, tone);
         }
@@ -293,12 +313,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         document.addEventListener("click", (event) => {
-            const validateRowButton = event.target.closest("#leadsTableBody .js-validate-lead");
+            const validateRowButton = event.target.closest(".lv-table .js-validate-lead");
             if (validateRowButton) {
                 openDrawer(validateRowButton.closest("tr.lead-row").dataset.leadId, { validate: true });
                 return;
             }
-            const openButton = event.target.closest("#leadsTableBody .js-open-lead");
+            const openButton = event.target.closest(".lv-table .js-open-lead");
             if (openButton) {
                 openDrawer(openButton.closest("tr.lead-row").dataset.leadId);
                 return;
@@ -314,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             // Linha inteira clicável, exceto controles dentro dela.
-            const row = event.target.closest("#leadsTableBody tr.lead-row");
+            const row = event.target.closest(".lv-table tr.lead-row");
             if (row && !event.target.closest("a, button, select, input, label, form")) {
                 openDrawer(row.dataset.leadId);
             }
@@ -325,7 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 closeDrawer();
                 return;
             }
-            const row = event.target.closest?.("#leadsTableBody tr.lead-row");
+            const row = event.target.closest?.(".lv-table tr.lead-row");
             if (row && event.target === row && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 openDrawer(row.dataset.leadId);

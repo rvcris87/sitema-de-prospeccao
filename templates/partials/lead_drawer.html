@@ -1,4 +1,5 @@
 {# Conteúdo do painel lateral do lead. Renderizado por GET /api/leads/<id>. #}
+{% from "partials/macros.html" import score %}
 {% set p = detalhe.presenca %}
 <div class="lv-drawer-inner" data-lead-id="{{ lead.id }}" data-validado="{{ 1 if lead._validado else 0 }}">
     <header class="lv-drawer-head">
@@ -11,13 +12,7 @@
         <div class="lv-drawer-kpis">
             <div class="lv-kpi">
                 <span class="lv-kpi-label">Score</span>
-                {% if lead._score_nivel == 'nenhum' %}
-                <span class="score score-nenhum">Não validado</span>
-                {% else %}
-                <span class="score score-{{ lead._score_nivel }}"><b>{{ lead._score }}</b><small>/100</small>
-                    <span class="score-bar" aria-hidden="true"><i style="width: {{ [lead._score, 100]|min }}%"></i></span>
-                </span>
-                {% endif %}
+                {{ score(lead, total=True, vazio="— não analisado") }}
             </div>
             <label class="lv-kpi">
                 <span class="lv-kpi-label">Status do funil</span>

@@ -52,22 +52,5 @@
     </section>
 </div>
 
-<div class="lv-drawer-backdrop" id="leadDrawerBackdrop" hidden></div>
-<aside class="lv-drawer" id="leadDrawer" role="dialog" aria-modal="true" aria-labelledby="leadDrawerTitle" aria-hidden="true" tabindex="-1">
-    <button class="lv-drawer-close" type="button" id="leadDrawerClose" aria-label="Fechar painel">{{ icon('x', 20) }}</button>
-    <div class="lv-drawer-content" id="leadDrawerContent"></div>
-</aside>
-
-<template id="leadDrawerSkeleton">
-    <div class="lv-skeleton" aria-busy="true" aria-live="polite">
-        <div class="sk sk-title"></div>
-        <div class="sk sk-line w60"></div>
-        <div class="sk-row"><div class="sk sk-pill"></div><div class="sk sk-pill"></div></div>
-        <p class="lv-skeleton-msg" data-skeleton-msg>Carregando lead…</p>
-        <div class="sk sk-block"></div>
-        <div class="sk sk-block"></div>
-        <div class="sk sk-line"></div>
-        <div class="sk sk-line w80"></div>
-    </div>
-</template>
+{% include "partials/lead_drawer_shell.html" %}
 {% endblock %}

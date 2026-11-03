@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/macros.html" import score %}
 
 {% block title %}Laudos | Radar Local IA{% endblock %}
 
@@ -56,7 +57,7 @@
                         </div>
                     </td>
                     <td class="table-summary">{{ lead._conclusao|truncate(95) }}</td>
-                    <td><span class="badge neutral">Score {{ lead._score }}</span></td>
+                    <td>{{ score(lead) }}</td>
                     <td><span class="badge {% if lead._status_geral == 'Aprovado' %}good{% elif lead._status_geral == 'Com ressalvas' %}warn{% else %}bad{% endif %}">{{ lead._status_geral }}</span></td>
                     <td>
                         <span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% elif lead._whatsapp_compat == 'incerto' %}warn{% else %}bad{% endif %}">

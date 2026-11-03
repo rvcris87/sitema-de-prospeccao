@@ -1176,7 +1176,8 @@ button, .btn, .primary-button, .secondary-button, .ghost-button, .danger-button,
    Tela de Leads (v2): tabela enxuta + painel lateral
    Paleta de status: verde, amarelo e vermelho suaves.
    ============================================================= */
-.leads-v2, .lv-drawer {
+:root {
+    /* Cores da tela de Leads; globais para score/tabela/painel em qualquer página. */
     --lv-surface: #ffffff;
     --lv-line: #eee7df;
     --lv-line-soft: #f5f0ea;
@@ -1392,7 +1393,7 @@ tr.lead-row.is-validating td.col-acao::after {
 
 /* Celular: tabela vira lista e o painel ocupa a tela inteira */
 @media (max-width: 720px) {
-    .leads-v2 { padding-inline: 12px; gap: 16px; }
+    .leads-v2 { gap: 16px; }
     .lv-card { padding: 16px; border-radius: 16px; }
     .lv-table-wrap { margin: 0 -16px -16px; overflow: visible; }
     .lv-filters select { flex: 1 1 calc(50% - 5px); max-width: none; min-width: 0; }
@@ -1426,3 +1427,67 @@ svg.icon { display: inline-block; vertical-align: -0.2em; }
 .metric-icon .icon { width: 22px; height: 22px; }
 .empty-state-icon .icon, .feature-icon .icon { width: 28px; height: 28px; }
 .nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; }
+
+/* =============================================================
+   Etapa 2.1: sem rolagem horizontal, grids que quebram linha
+   ============================================================= */
+/* As seções tinham width:100% + margin lateral de 18px, passando 18px da tela. */
+.main > section,
+.main > .panel,
+.main > .page-header,
+.main > .page-hero { width: auto; max-width: 100%; }
+.main > .leads-v2 { margin: 0 18px 16px; }
+.main { overflow-x: clip; }
+
+.metrics-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.tri-grid.refined-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+    grid-template-areas: none;
+}
+.tri-grid.refined-grid > .panel,
+.tri-grid.refined-grid .panel:nth-child(n) { grid-area: auto; }
+.two-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.two-grid > :first-child { flex: 2 1 520px; }
+.two-grid > :last-child { flex: 1 1 280px; }
+.capture-steps { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.metrics-grid > *, .tri-grid > *, .two-grid > *, .side-stack > *, .capture-steps > * { min-width: 0; }
+
+/* Cards sem espaço vazio sobrando */
+.panel-map { min-height: 0; }
+.panel-compact { align-content: start; }
+.page-header-compact { padding-block: 18px; }
+.page-header-compact + .panel { margin-top: 0; }
+
+/* Legenda real dos cards (substitui os percentuais fixos) */
+.metric-card small.metric-caption { color: var(--text-muted); font-weight: 500; font-size: .86rem; }
+
+/* Tabela nova de leads dentro de um .panel (Dashboard) */
+.panel .lv-table-wrap.lv-table-in-panel {
+    margin: 0 -22px -22px;
+    border-top: 1px solid var(--lv-line-soft);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.lv-empty-sm { padding: 24px 12px; }
+.lv-empty-sm .lv-empty-icon { width: 44px; height: 44px; }
+
+@media (max-width: 720px) {
+    .main > .leads-v2 { margin: 0 0 16px; }
+    .panel .lv-table-wrap.lv-table-in-panel { margin: 0 -22px -22px; }
+}
+
+/* Tabelas antigas (Laudos, Oportunidades): encolhem e, em telas menores, viram cartões */
+.table-clean { min-width: 0; }
+@media (max-width: 1200px) {
+    .table-wrap { overflow-x: visible; }
+    .table-clean, .table-clean tbody, .table-clean tr, .table-clean td { display: block; width: 100%; }
+    .table-clean thead { display: none; }
+    .table-clean tbody tr { padding: 12px 4px; border-bottom: 1px solid var(--border-color); }
+    .table-clean tbody td { border: 0; padding: 4px 0; display: flex; gap: 12px; justify-content: space-between; align-items: center; text-align: right; }
+    .table-clean tbody td::before { content: attr(data-label); color: var(--text-muted); font-size: .8rem; font-weight: 600; text-align: left; flex-shrink: 0; }
+    .table-clean tbody td:first-child { font-weight: 700; }
+    .table-clean tbody td[colspan] { display: block; text-align: center; }
+    .table-clean tbody td[colspan]::before { content: none; }
+}
+
+/* Topo sem busca/período/sino (não tinham função): perfil alinhado à direita */
+.main-header { justify-content: flex-end; }

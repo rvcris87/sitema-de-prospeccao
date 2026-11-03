@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Radar Local IA{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20261103b') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20261103d') }}">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="dashboard-body">
@@ -69,12 +69,7 @@
     <main class="main">
         <button type="button" class="mobile-sidebar-toggle" id="mobileSidebarToggle">{{ icon('menu') }} Menu</button>
         <header class="main-header">
-            <div class="top-search-wrap">
-                <input class="top-search" type="search" placeholder="Buscar empresa, cidade ou laudo...">
-            </div>
             <div class="main-header-actions">
-                <button class="secondary-button period-chip" type="button">Últimos 30 dias</button>
-                <button class="icon-button notif-chip" type="button">{{ icon('bell') }}</button>
                 <div class="profile-pill">
                     <span class="avatar avatar-sm">{{ (current_user.nome or 'U')[:2]|upper }}</span>
                     <div class="profile-info">
@@ -199,7 +194,7 @@
                             <span class="badge-real-ai">Qualidade do Lead</span>
                             <div class="score-container laudo-score-container">
                                 <span class="score-label">Score do Lead</span>
-                                <strong id="realAiScore">85/100</strong>
+                                <strong id="realAiScore">—</strong>
                             </div>
                             <div class="laudo-top-badges">
                                 <span id="realAiDecisionBadge" class="badge warn">Validar melhor</span>
@@ -329,7 +324,7 @@
     <!-- Toast Notification -->
     <div id="toastNotification" class="toast hidden">Status atualizado!</div>
 
-    <script src="{{ url_for('static', filename='js/app.js', v='20261103b') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js', v='20261103d') }}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var toggle = document.getElementById("mobileSidebarToggle");

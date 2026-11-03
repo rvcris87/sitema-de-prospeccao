@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Erro interno | Radar Local IA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh; display: grid; place-items: center; padding: 24px;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #1f1a17;
+            background: linear-gradient(135deg, #fbf5ea 0%, #f3e8d9 50%, #eadcc9 100%);
+        }
+        .card {
+            width: min(440px, 100%); background: #fff; border: 1px solid #eee7df; border-radius: 18px;
+            box-shadow: 0 8px 24px rgba(31, 26, 23, .06); padding: 36px 32px; text-align: center;
+        }
+        .icone {
+            width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+            display: grid; place-items: center; background: #fcebe8; color: #a23a2e;
+        }
+        h1 { font-size: 1.35rem; letter-spacing: -0.01em; }
+        p { color: #7a6f67; margin-top: 10px; line-height: 1.55; }
+        .acoes { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+        a, button {
+            display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 10px;
+            font: inherit; font-weight: 600; font-size: .92rem; cursor: pointer; text-decoration: none;
+        }
+        .primario { background: #ef7b2d; color: #fff; border: 0; }
+        .primario:hover { background: #d7671f; }
+        .secundario { background: #fff; color: #1f1a17; border: 1px solid #eee7df; }
+        .secundario:hover { background: #faf7f3; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="icone" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        </div>
+        <h1>Algo deu errado por aqui</h1>
+        <p>O servidor encontrou um erro ao abrir esta página. Seus dados estão seguros. Tente recarregar; se o erro continuar, o detalhe técnico ficou registrado no terminal do servidor.</p>
+        <div class="acoes">
+            <button class="primario" type="button" onclick="location.reload()">Tentar de novo</button>
+            <a class="secundario" href="/dashboard">Ir para o Dashboard</a>
+        </div>
+    </main>
+</body>
+</html>

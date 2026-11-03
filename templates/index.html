@@ -3,8 +3,7 @@
 {% block title %}Dashboard | Radar Local IA{% endblock %}
 
 {% block content %}
-{% set total_oportunidades = metrics.oportunidades_altas + metrics.leads_com_ressalvas + metrics.leads_descartados %}
-{% set recent_leads = leads[:5] %}
+{% set analisados = metrics.leads_validados %}
 
 <section id="dashboard-section" class="page-hero compact-hero">
     <p class="eyebrow">Central de validação</p>
@@ -16,61 +15,78 @@
     <article class="metric-card">
         <span class="metric-icon">{{ icon('shield') }}</span>
         <p>Leads verificados</p>
-        <strong>{{ metrics.leads_validados }}</strong>
-        <small>↗ +18%</small>
+        <strong>{{ analisados }}</strong>
+        <small class="metric-caption">de {{ metrics.leads_importados }} leads</small>
     </article>
     <article class="metric-card">
         <span class="metric-icon metric-icon-good">{{ icon('message') }}</span>
         <p>WhatsApps compatíveis</p>
         <strong>{{ metrics.whatsapps_compativeis }}</strong>
-        <small>↗ +12%</small>
+        <small class="metric-caption">de {{ analisados }} analisados</small>
     </article>
     <article class="metric-card">
         <span class="metric-icon metric-icon-good">{{ icon('check') }}</span>
         <p>Leads aprovados</p>
         <strong>{{ metrics.leads_aprovados }}</strong>
-        <small>↗ +7%</small>
+        <small class="metric-caption">de {{ analisados }} analisados</small>
     </article>
     <article class="metric-card">
         <span class="metric-icon">{{ icon('package') }}</span>
         <p>Sem site próprio</p>
-        <strong>{{ metrics.sem_site }}</strong>
-        <small>↗ +22%</small>
+        <strong>{{ metrics.sem_site_proprio }}</strong>
+        <small class="metric-caption" title="Leads analisados cujo laudo não encontrou site, ou só encontrou rede social.">de {{ analisados }} analisados (laudo sem site)</small>
     </article>
     <article class="metric-card">
         <span class="metric-icon metric-icon-warn">{{ icon('layout') }}</span>
         <p>Sites terceirizados</p>
-        <strong>{{ metrics.site_terceirizado }}</strong>
-        <small>↗ +9%</small>
+        <strong>{{ metrics.sites_terceirizados }}</strong>
+        <small class="metric-caption">de {{ analisados }} analisados</small>
     </article>
     <article class="metric-card">
         <span class="metric-icon metric-icon-bad">{{ icon('alert') }}</span>
         <p>Leads com ressalvas</p>
         <strong>{{ metrics.leads_com_ressalvas }}</strong>
-        <small>↘ -4%</small>
+        <small class="metric-caption">de {{ analisados }} analisados</small>
     </article>
 </section>
 
 <section class="tri-grid refined-grid dashboard-2col">
-    <article class="panel panel-map">
+    <article class="panel panel-map panel-compact">
         <h2>Prioridade por cidade</h2>
-        <p>Onde estão as maiores oportunidades hoje</p>
+        <p>Leads analisados / total, nas cidades com mais leads</p>
+        {% if cidades %}
         <ul class="score-list city-bars">
-            <li><span>Curitiba</span><div class="score-track"><i style="width:68%"></i></div><b>28 / 42</b></li>
-            <li><span>São Paulo</span><div class="score-track"><i style="width:61%"></i></div><b>41 / 67</b></li>
-            <li><span>Belo Horizonte</span><div class="score-track"><i style="width:53%"></i></div><b>18 / 34</b></li>
-            <li><span>Florianópolis</span><div class="score-track"><i style="width:59%"></i></div><b>19 / 32</b></li>
+            {% for c in cidades %}
+            <li><span>{{ c.cidade }}</span><div class="score-track"><i style="width:{{ c.pct }}%"></i></div><b>{{ c.analisados }} / {{ c.total }}</b></li>
+            {% endfor %}
         </ul>
+        {% else %}
+        <div class="lv-empty lv-empty-sm">
+            <span class="lv-empty-icon">{{ icon('map-pin', 22) }}</span>
+            <p>Nenhum lead cadastrado ainda.</p>
+        </div>
+        {% endif %}
     </article>
 
-    <article class="panel panel-opportunity opportunity-panel">
+    <article class="panel panel-opportunity opportunity-panel panel-compact">
         <h2>Classificação por oportunidade</h2>
-        <p>Distribuição dos laudos</p>
+        <p>Prioridade definida no laudo dos {{ analisados }} leads analisados</p>
+        {% if analisados %}
+        {% set sem_prioridade = analisados - metrics.oportunidades_altas - metrics.prioridade_media - metrics.prioridade_baixa %}
         <ul class="score-list">
-            <li><span>Alta oportunidade</span><div class="score-track"><i style="width:62%;background:#3ea15c"></i></div><b>{{ metrics.oportunidades_altas }}</b></li>
-            <li><span>Média oportunidade</span><div class="score-track"><i style="width:35%;background:#d89a2f"></i></div><b>{{ metrics.leads_com_ressalvas }}</b></li>
-            <li><span>Baixa oportunidade</span><div class="score-track"><i style="width:24%;background:#d45244"></i></div><b>{{ metrics.leads_descartados }}</b></li>
+            <li><span>Alta</span><div class="score-track"><i style="width:{{ (metrics.oportunidades_altas * 100 / analisados)|round|int }}%;background:#3fa45f"></i></div><b>{{ metrics.oportunidades_altas }}</b></li>
+            <li><span>Média</span><div class="score-track"><i style="width:{{ (metrics.prioridade_media * 100 / analisados)|round|int }}%;background:#d9a331"></i></div><b>{{ metrics.prioridade_media }}</b></li>
+            <li><span>Baixa</span><div class="score-track"><i style="width:{{ (metrics.prioridade_baixa * 100 / analisados)|round|int }}%;background:#d8604f"></i></div><b>{{ metrics.prioridade_baixa }}</b></li>
+            {% if sem_prioridade > 0 %}
+            <li><span>Sem prioridade</span><div class="score-track"><i style="width:{{ (sem_prioridade * 100 / analisados)|round|int }}%;background:#c9bfb6"></i></div><b>{{ sem_prioridade }}</b></li>
+            {% endif %}
         </ul>
+        {% else %}
+        <div class="lv-empty lv-empty-sm">
+            <span class="lv-empty-icon">{{ icon('chart', 22) }}</span>
+            <p>Valide leads com IA para ver a distribuição.</p>
+        </div>
+        {% endif %}
     </article>
 </section>
 
@@ -78,70 +94,15 @@
     <article id="laudos-section" class="panel">
         <header>
             <h2>Laudos recentes</h2>
-            <a href="#laudos-section" class="ghost-button">Ver todos os laudos</a>
+            <a href="{{ url_for('laudos_page') }}" class="ghost-button">Ver todos os laudos</a>
         </header>
-        <div class="table-wrap">
-            <table class="table-clean">
+        <div class="lv-table-wrap lv-table-in-panel">
+            <table class="lv-table">
                 <thead>
-                    <tr>
-                        <th>Empresa</th>
-                        <th>Cidade</th>
-                        <th>Score</th>
-                        <th>WhatsApp</th>
-                        <th>Site</th>
-                        <th>Laudo</th>
-                        <th>Ação</th>
-                    </tr>
+                    <tr><th>Empresa</th><th>Cidade</th><th>Score</th><th>Status do funil</th><th class="col-acao">Ação</th></tr>
                 </thead>
                 <tbody>
-                    {% for lead in recent_leads %}
-                    <tr class="lead-card"
-                        id="lead-card-{{ lead.id }}"
-                        data-lead-id="{{ lead.id }}"
-                        data-nome="{{ lead.nome_empresa }}"
-                        data-nicho="{{ lead.nicho }}"
-                        data-cidade="{{ lead.cidade }}"
-                        data-site-qualidade="{{ lead.qualidade_site }}"
-                        data-site-url="{{ lead.site or '' }}"
-                        data-instagram="{{ lead.instagram or '' }}"
-                        data-telefone="{{ lead.telefone_whatsapp or '' }}"
-                        data-ai-analisado="{{ lead.ai_analisado }}"
-                        data-ai-potencial="{{ lead.ai_potencial or '' }}"
-                        data-ai-motivo="{{ lead.ai_motivo or '' }}"
-                        data-ai-sugestao="{{ lead.ai_sugestao or '' }}"
-                        data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}'
-                        data-ia-real-score="{{ lead.ia_real_score or 0 }}"
-                        data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}"
-                        data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}'
-                        data-analisado-em="{{ lead.analisado_em or '' }}">
-                        <td>{{ lead.nome_empresa }}</td>
-                        <td>{{ lead.cidade }}</td>
-                        <td><span class="badge neutral">Score {{ lead._score }}</span></td>
-                        <td>
-                            <span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% elif lead._whatsapp_compat == 'incerto' %}warn{% else %}bad{% endif %}">
-                                {% if lead._whatsapp_compat == "compativel" %}Verificado{% elif lead._whatsapp_compat == "incerto" %}Incerto{% else %}Incompatível{% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge {% if lead._site_tipo in ['site_proprio','proprio'] %}good{% elif lead._site_tipo in ['site_terceirizado','cardapio_plataforma_externa'] %}warn{% else %}bad{% endif %}">
-                                {% if lead._site_tipo in ["site_proprio","proprio"] %}Tem site{% elif lead._site_tipo in ["site_terceirizado","cardapio_plataforma_externa"] %}Site fraco{% else %}Sem site{% endif %}
-                            </span>
-                        </td>
-                        <td><span class="badge {% if lead.ia_real_resultado %}good{% else %}warn{% endif %}">{% if lead.ia_real_resultado %}Laudo gerado{% else %}Laudo pendente{% endif %}</span></td>
-                        <td>
-                            <button class="primary-button run-real-ai-btn" type="button">{% if lead.ia_real_resultado %}Abrir laudo{% else %}Validar lead{% endif %}</button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="7">
-                        <div class="empty-state-card">
-                            <div class="empty-state-icon">{{ icon('inbox') }}</div>
-                            <h3>Nenhum lead encontrado</h3>
-                            <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
-                            <a href="{{ url_for('buscar_leads') }}" class="primary-button">Capturar leads</a>
-                        </div>
-                    </td></tr>
-                    {% endfor %}
+                    {% with leads=laudos_recentes %}{% include "partials/lead_rows.html" %}{% endwith %}
                 </tbody>
             </table>
         </div>
@@ -150,19 +111,14 @@
     <aside id="insights-section" class="side-stack">
         <article class="panel">
             <h2>Insights da IA</h2>
+            {% if insights %}
             <ul class="list-clean">
-                <li>Negócios em Campinas com bom Instagram e WhatsApp verificado têm maior chance de conversão.</li>
-                <li>Segmento de Saúde em São Paulo está com alta demanda e baixa concorrência digital.</li>
-                <li>Empresas sem site próprio representam oportunidade clara de diferenciação.</li>
+                {% for item in insights[:3] %}<li>{{ item.texto }}</li>{% endfor %}
             </ul>
-        </article>
-        <article class="panel">
-            <h2>Ações recomendadas hoje</h2>
-            <ul class="list-clean">
-                <li>Priorize leads de alta oportunidade.</li>
-                <li>Envie mensagem para leads com WhatsApp verificado.</li>
-                <li>Gere laudos para novos leads capturados.</li>
-            </ul>
+            <a class="lv-link" href="{{ url_for('insights_page') }}">Ver todos os insights</a>
+            {% else %}
+            <p class="lv-muted">Os insights aparecem aqui quando houver leads analisados.</p>
+            {% endif %}
         </article>
     </aside>
 </section>
@@ -170,97 +126,18 @@
 <section id="leads-section" class="panel section-block">
     <header>
         <div>
-            <h2>Leads</h2>
-            <p class="subtitle">Visualize, filtre e priorize os leads antes da abordagem comercial.</p>
+            <h2>Leads recentes</h2>
+            <p class="subtitle">Os 5 últimos leads cadastrados. Clique em um lead para ver os detalhes.</p>
         </div>
-        <a href="{{ url_for('new_lead') }}" class="primary-button">Novo lead</a>
+        <a href="{{ url_for('leads_page') }}" class="ghost-button">Ver todos</a>
     </header>
-
-    <form class="filters" method="get">
-        <label>Nicho
-            <select name="nicho"><option value="">Todos</option>{% for option in filter_options.nichos %}<option value="{{ option }}" {% if filters.nicho == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
-        </label>
-        <label>Cidade
-            <select name="cidade"><option value="">Todas</option>{% for option in filter_options.cidades %}<option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
-        </label>
-        <label>Potencial
-            <select name="prioridade"><option value="">Todos</option><option value="Alta" {% if filters.prioridade == 'Alta' %}selected{% endif %}>Alta</option><option value="Média" {% if filters.prioridade == 'Média' %}selected{% endif %}>Média</option><option value="Baixa" {% if filters.prioridade == 'Baixa' %}selected{% endif %}>Baixa</option></select>
-        </label>
-        <label>Status
-            <select name="status"><option value="">Todos</option>{% for option in status_options %}<option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
-        </label>
-        <div class="filter-actions">
-            <button class="secondary-button" type="submit">Filtrar</button>
-            <a class="ghost-button" href="{{ url_for('dashboard') }}#leads-section">Limpar</a>
-        </div>
-    </form>
-
-    <div class="table-wrap">
-        <table class="table-clean">
+    <div class="lv-table-wrap lv-table-in-panel">
+        <table class="lv-table">
             <thead>
-                <tr>
-                    <th>Empresa</th>
-                    <th>Cidade</th>
-                    <th>Score</th>
-                    <th>WhatsApp</th>
-                    <th>Site</th>
-                    <th>Prioridade</th>
-                    <th>Laudo</th>
-                    <th>Ações</th>
-                </tr>
+                <tr><th>Empresa</th><th>Cidade</th><th>Score</th><th>Status do funil</th><th class="col-acao">Ação</th></tr>
             </thead>
             <tbody>
-                {% for lead in leads %}
-                <tr class="lead-card"
-                    id="lead-grid-{{ lead.id }}"
-                    data-lead-id="{{ lead.id }}"
-                    data-nome="{{ lead.nome_empresa }}"
-                    data-nicho="{{ lead.nicho }}"
-                    data-cidade="{{ lead.cidade }}"
-                    data-site-qualidade="{{ lead.qualidade_site }}"
-                    data-site-url="{{ lead.site or '' }}"
-                    data-instagram="{{ lead.instagram or '' }}"
-                    data-telefone="{{ lead.telefone_whatsapp or '' }}"
-                    data-ai-analisado="{{ lead.ai_analisado }}"
-                    data-ai-potencial="{{ lead.ai_potencial or '' }}"
-                    data-ai-motivo="{{ lead.ai_motivo or '' }}"
-                    data-ai-sugestao="{{ lead.ai_sugestao or '' }}"
-                    data-ia-real-resultado='{{ lead.ia_real_resultado or "" }}'
-                    data-ia-real-score="{{ lead.ia_real_score or 0 }}"
-                    data-ia-real-potencial="{{ lead.ia_real_potencial or '' }}"
-                    data-ia-real-fontes='{{ lead.ia_real_fontes or "[]" }}'
-                    data-analisado-em="{{ lead.analisado_em or '' }}">
-                    <td>{{ lead.nome_empresa }}</td>
-                    <td>{{ lead.cidade }}</td>
-                    <td><span class="badge neutral">{{ lead._score }}</span></td>
-                    <td><span class="badge {% if lead._whatsapp_compat == 'compativel' %}good{% elif lead._whatsapp_compat == 'incerto' %}warn{% else %}bad{% endif %}">{{ lead._whatsapp_compat|replace('_',' ')|title }}</span></td>
-                    <td><span class="badge {% if lead._site_tipo in ['site_proprio','proprio'] %}good{% elif lead._site_tipo in ['site_terceirizado','cardapio_plataforma_externa'] %}warn{% else %}bad{% endif %}">{{ lead._site_tipo|replace('_',' ')|title }}</span></td>
-                    <td><span class="badge {% if lead.prioridade == 'Alta' %}good{% elif lead.prioridade == 'Média' %}warn{% else %}bad{% endif %}">{{ lead.prioridade }}</span></td>
-                    <td><span class="badge {% if lead.ia_real_resultado %}good{% else %}warn{% endif %}">{% if lead.ia_real_resultado %}Gerado{% else %}Pendente{% endif %}</span></td>
-                    <td class="actions-inline">
-                        <button class="primary-button run-real-ai-btn" type="button">{% if lead.ia_real_resultado %}Ver laudo{% else %}Validar lead{% endif %}</button>
-                        <details class="table-actions-menu">
-                            <summary class="ghost-button">Mais ações</summary>
-                            <div class="table-actions-dropdown">
-                                <button class="secondary-button revalidate-lead-btn" type="button">Revalidar</button>
-                                <a class="ghost-button" href="{{ url_for('edit_lead', lead_id=lead.id) }}">Editar</a>
-                                <form method="post" action="{{ url_for('remove_lead', lead_id=lead.id) }}" data-confirm="Excluir este lead?" class="delete-form">
-                                    <button class="danger-button" type="submit">Excluir</button>
-                                </form>
-                            </div>
-                        </details>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="8">
-                    <div class="empty-state-card">
-                        <div class="empty-state-icon">{{ icon('search') }}</div>
-                        <h3>Nenhum lead encontrado com os filtros atuais</h3>
-                        <p>Limpe os filtros ou capture novos leads para continuar a validação.</p>
-                        <a href="{{ url_for('buscar_leads') }}" class="primary-button">Capturar leads</a>
-                    </div>
-                </td></tr>
-                {% endfor %}
+                {% with leads=leads_recentes %}{% include "partials/lead_rows.html" %}{% endwith %}
             </tbody>
         </table>
     </div>
@@ -281,4 +158,6 @@
     <p class="subtitle">Mantenha token de integração, regras de validação e parâmetros de captura alinhados com sua operação.</p>
     <a href="{{ url_for('importar_apify') }}" class="secondary-button">Abrir integrações e importação</a>
 </section>
+
+{% include "partials/lead_drawer_shell.html" %}
 {% endblock %}
