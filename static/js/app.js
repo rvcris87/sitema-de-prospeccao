@@ -2,13 +2,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------------------
     // 1. CRM Dynamic Status Updates
     // -------------------------------------------------------------
-    // Delegado no document: continua funcionando depois que o tbody é re-renderizado.
+    // Delegado no document: vale para a tabela, o painel lateral e linhas inseridas via fetch.
     document.addEventListener("change", async (event) => {
         const select = event.target.closest(".crm-status-select");
         if (!select) return;
         const leadId = select.dataset.leadId;
         const newStatus = select.value;
+        const savedOption = [...select.options].find(option => option.defaultSelected);
+        const oldStatus = savedOption ? savedOption.value : null;
 
+        select.disabled = true;
         try {
             const response = await fetch(`/api/leads/${leadId}/status`, {
                 method: "POST",
@@ -18,75 +21,318 @@ document.addEventListener("DOMContentLoaded", () => {
             const result = await response.json();
 
             if (response.ok && result.ok) {
-                // Na tabela de leads, troca só a linha deste lead pelo HTML vindo do servidor.
-                const row = select.closest("#leadsTableBody tr.lead-card");
-                if (row && result.html) {
-                    const template = document.createElement("template");
-                    template.innerHTML = result.html.trim();
-                    const newRow = template.content.querySelector("tr.lead-card");
-                    if (newRow) row.replaceWith(newRow);
-                }
+                // Troca só a linha deste lead e sincroniza o outro select (tabela <-> painel).
+                if (result.html) replaceLeadRow(leadId, result.html);
+                document.querySelectorAll(`.crm-status-select[data-lead-id="${leadId}"]`).forEach(other => {
+                    [...other.options].forEach(option => {
+                        option.defaultSelected = option.value === newStatus;
+                    });
+                    other.value = newStatus;
+                });
+                if (leadsPage) leadsPage.onStatusChanged(oldStatus, newStatus);
                 showToast(`Status atualizado para: ${newStatus}`);
             } else {
+                if (oldStatus !== null) select.value = oldStatus;
                 showToast("Erro ao atualizar status.", "error");
             }
         } catch (error) {
+            if (oldStatus !== null) select.value = oldStatus;
             showToast("Erro de comunicação com o servidor.", "error");
+        } finally {
+            select.disabled = false;
         }
     });
 
-    // -------------------------------------------------------------
-    // 1b. Filtros da página de Leads sem recarregar a página
-    // -------------------------------------------------------------
-    const leadsFilterForm = document.getElementById("leadsFilterForm");
-    const leadsTableBody = document.getElementById("leadsTableBody");
-    if (leadsFilterForm && leadsTableBody) {
-        let filterRequestId = 0;
+    function findLeadRow(leadId) {
+        return document.querySelector(`#leadsTableBody tr.lead-row[data-lead-id="${leadId}"]`);
+    }
 
-        const applyLeadsFilters = async () => {
+    function replaceLeadRow(leadId, html) {
+        const row = findLeadRow(leadId);
+        if (!row) return null;
+        const template = document.createElement("template");
+        template.innerHTML = html.trim();
+        const newRow = template.content.querySelector("tr.lead-row");
+        if (!newRow) return null;
+        if (row.classList.contains("is-active")) newRow.classList.add("is-active");
+        row.replaceWith(newRow);
+        return newRow;
+    }
+
+    // -------------------------------------------------------------
+    // 1b. Tela de Leads: filtros sem recarregar, chips de status e painel lateral
+    // -------------------------------------------------------------
+    const leadsPage = setupLeadsPage();
+
+    function setupLeadsPage() {
+        const form = document.getElementById("leadsFilterForm");
+        const tableBody = document.getElementById("leadsTableBody");
+        if (!form || !tableBody) return null;
+
+        const statusSelect = form.querySelector('select[name="status"]');
+        const searchInput = form.querySelector('input[name="q"]');
+        const chipsContainer = document.getElementById("leadsStatusChips");
+        const statusOrder = [...statusSelect.options].map(option => option.value).filter(Boolean);
+        let counts = {};
+        try {
+            counts = JSON.parse(document.getElementById("leadsInitialCounts")?.textContent || "{}");
+        } catch (error) {
+            counts = {};
+        }
+
+        // ---------- Filtros ----------
+        let filterRequestId = 0;
+        let searchTimer = null;
+
+        const applyFilters = async () => {
             const params = new URLSearchParams();
-            new FormData(leadsFilterForm).forEach((value, key) => {
-                if (String(value).trim() !== "") params.set(key, value);
+            new FormData(form).forEach((value, key) => {
+                if (String(value).trim() !== "") params.set(key, String(value).trim());
             });
             const query = params.toString();
             // Mantém os filtros na URL para que F5 preserve o resultado.
             history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+            renderChips();
 
             const requestId = ++filterRequestId;
-            leadsTableBody.style.opacity = "0.5";
+            tableBody.classList.add("is-loading");
             try {
-                const response = await fetch(`${leadsFilterForm.dataset.apiUrl}?${query}`, {
+                const response = await fetch(`${form.dataset.apiUrl}?${query}`, {
                     headers: { "Accept": "application/json" }
                 });
                 const result = await response.json();
                 // Ignora respostas antigas se o usuário trocou o filtro de novo.
                 if (requestId !== filterRequestId) return;
                 if (response.ok && result.ok) {
-                    leadsTableBody.innerHTML = result.html;
+                    tableBody.innerHTML = result.html;
+                    counts = result.contagens || counts;
+                    renderChips();
+                    markActiveRow();
                 } else {
                     showToast("Erro ao filtrar leads.", "error");
                 }
             } catch (error) {
                 if (requestId === filterRequestId) showToast("Erro de comunicação com o servidor.", "error");
             } finally {
-                if (requestId === filterRequestId) leadsTableBody.style.opacity = "";
+                if (requestId === filterRequestId) tableBody.classList.remove("is-loading");
             }
         };
 
-        leadsFilterForm.addEventListener("submit", (event) => {
+        form.addEventListener("submit", (event) => {
             event.preventDefault();
-            applyLeadsFilters();
+            applyFilters();
         });
-        leadsFilterForm.addEventListener("change", applyLeadsFilters);
+        form.addEventListener("change", (event) => {
+            if (event.target === searchInput) return; // a busca já filtra pelo "input"
+            applyFilters();
+        });
+        searchInput?.addEventListener("input", () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(applyFilters, 300);
+        });
 
-        const clearButton = leadsFilterForm.querySelector("[data-clear-filters]");
-        if (clearButton) {
-            clearButton.addEventListener("click", (event) => {
-                event.preventDefault();
-                leadsFilterForm.querySelectorAll("select").forEach(select => { select.value = ""; });
-                applyLeadsFilters();
+        form.querySelector("[data-clear-filters]")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            form.querySelectorAll("select").forEach(select => { select.value = ""; });
+            if (searchInput) searchInput.value = "";
+            applyFilters();
+        });
+
+        // ---------- Chips de contagem por status ----------
+        function renderChips() {
+            if (!chipsContainer) return;
+            const active = statusSelect.value;
+            const chips = [{ status: "", label: "Todos", count: counts._total ?? 0 }];
+            statusOrder.forEach(status => {
+                const count = counts[status] || 0;
+                if (count > 0 || status === active) chips.push({ status, label: status, count });
             });
+            chipsContainer.innerHTML = chips.map(chip => `
+                <button type="button" class="lv-chip${chip.status === active ? " is-active" : ""}"
+                    data-status="${escapeAttribute(chip.status)}" aria-pressed="${chip.status === active}">
+                    <span>${escapeHtml(chip.label)}</span><b>${chip.count}</b>
+                </button>`).join("");
         }
+
+        chipsContainer?.addEventListener("click", (event) => {
+            const chip = event.target.closest(".lv-chip");
+            if (!chip) return;
+            statusSelect.value = chip.dataset.status === statusSelect.value ? "" : chip.dataset.status;
+            applyFilters();
+        });
+
+        renderChips();
+
+        // ---------- Painel lateral (drawer) ----------
+        const drawer = document.getElementById("leadDrawer");
+        const backdrop = document.getElementById("leadDrawerBackdrop");
+        const drawerContent = document.getElementById("leadDrawerContent");
+        const closeButton = document.getElementById("leadDrawerClose");
+        const skeletonTemplate = document.getElementById("leadDrawerSkeleton");
+        const validating = new Set();
+        let currentLeadId = null;
+        let lastFocus = null;
+
+        function showSkeleton(message) {
+            drawerContent.innerHTML = "";
+            drawerContent.appendChild(skeletonTemplate.content.cloneNode(true));
+            const msg = drawerContent.querySelector("[data-skeleton-msg]");
+            if (msg) msg.textContent = message;
+        }
+
+        function markActiveRow() {
+            tableBody.querySelectorAll("tr.lead-row.is-active").forEach(row => row.classList.remove("is-active"));
+            if (currentLeadId) findLeadRow(currentLeadId)?.classList.add("is-active");
+        }
+
+        async function fetchLead(leadId) {
+            const response = await fetch(`/api/leads/${leadId}`, { headers: { "Accept": "application/json" } });
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.message || "Lead não encontrado.");
+            return result;
+        }
+
+        // Busca o lead e atualiza só a linha dele e, se estiver aberto, o painel.
+        async function refreshLead(leadId) {
+            const row = findLeadRow(leadId);
+            const oldStatus = row ? row.dataset.status : null;
+            const result = await fetchLead(leadId);
+            replaceLeadRow(leadId, result.row_html);
+            if (oldStatus !== null && oldStatus !== result.lead.status) {
+                onStatusChanged(oldStatus, result.lead.status);
+            }
+            if (String(currentLeadId) === String(leadId) && !validating.has(String(leadId))) {
+                drawerContent.innerHTML = result.drawer_html;
+            }
+            return result;
+        }
+
+        async function openDrawer(leadId, options = {}) {
+            leadId = String(leadId);
+            if (currentLeadId === null) lastFocus = document.activeElement;
+            currentLeadId = leadId;
+            drawer.classList.add("is-open");
+            drawer.setAttribute("aria-hidden", "false");
+            backdrop.hidden = false;
+            document.body.classList.add("lv-drawer-open");
+            markActiveRow();
+            closeButton.focus({ preventScroll: true });
+
+            if (validating.has(leadId)) {
+                showSkeleton("Analisando presença digital com IA… isso pode levar até 1 minuto.");
+                return;
+            }
+            showSkeleton("Carregando lead…");
+            try {
+                await refreshLead(leadId);
+                if (options.validate) runValidation(leadId, false);
+            } catch (error) {
+                if (currentLeadId === leadId) {
+                    drawerContent.innerHTML = `<p class="lv-muted lv-drawer-error">${escapeHtml(error.message || "Não foi possível carregar o lead.")}</p>`;
+                }
+            }
+        }
+
+        function closeDrawer() {
+            if (currentLeadId === null) return;
+            currentLeadId = null;
+            drawer.classList.remove("is-open");
+            drawer.setAttribute("aria-hidden", "true");
+            backdrop.hidden = true;
+            document.body.classList.remove("lv-drawer-open");
+            markActiveRow();
+            if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+            lastFocus = null;
+        }
+
+        // Roda a análise de IA (endpoint existente) com skeleton no painel e na linha.
+        async function runValidation(leadId, reanalisar) {
+            leadId = String(leadId);
+            if (validating.has(leadId)) return;
+            validating.add(leadId);
+            findLeadRow(leadId)?.classList.add("is-validating");
+            if (currentLeadId === leadId) {
+                showSkeleton("Analisando presença digital com IA… isso pode levar até 1 minuto.");
+            }
+
+            let message = null;
+            let tone = "success";
+            try {
+                const response = await fetch(`/api/leads/${leadId}/pesquisar-ia-real`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reanalisar: Boolean(reanalisar) })
+                });
+                const result = await response.json();
+                if (response.ok && result.ok) {
+                    message = "Laudo do lead atualizado.";
+                } else {
+                    message = result.message || "Não foi possível validar o lead com IA.";
+                    tone = "error";
+                }
+            } catch (error) {
+                message = "IA indisponível neste ambiente. Verifique a conexão e tente de novo.";
+                tone = "error";
+            } finally {
+                validating.delete(leadId);
+            }
+
+            try {
+                await refreshLead(leadId);
+            } catch (error) {
+                findLeadRow(leadId)?.classList.remove("is-validating");
+            }
+            showToast(message, tone);
+        }
+
+        function onStatusChanged(oldStatus, newStatus) {
+            if (oldStatus === newStatus) return;
+            if (oldStatus && counts[oldStatus] > 0) counts[oldStatus] -= 1;
+            if (newStatus) counts[newStatus] = (counts[newStatus] || 0) + 1;
+            renderChips();
+        }
+
+        document.addEventListener("click", (event) => {
+            const validateRowButton = event.target.closest("#leadsTableBody .js-validate-lead");
+            if (validateRowButton) {
+                openDrawer(validateRowButton.closest("tr.lead-row").dataset.leadId, { validate: true });
+                return;
+            }
+            const openButton = event.target.closest("#leadsTableBody .js-open-lead");
+            if (openButton) {
+                openDrawer(openButton.closest("tr.lead-row").dataset.leadId);
+                return;
+            }
+            const drawerValidate = event.target.closest("#leadDrawer .js-drawer-validate");
+            if (drawerValidate && currentLeadId) {
+                const inner = drawerContent.querySelector(".lv-drawer-inner");
+                runValidation(currentLeadId, inner?.dataset.validado === "1");
+                return;
+            }
+            if (event.target.closest("#leadDrawerClose") || event.target === backdrop) {
+                closeDrawer();
+                return;
+            }
+            // Linha inteira clicável, exceto controles dentro dela.
+            const row = event.target.closest("#leadsTableBody tr.lead-row");
+            if (row && !event.target.closest("a, button, select, input, label, form")) {
+                openDrawer(row.dataset.leadId);
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && currentLeadId !== null) {
+                closeDrawer();
+                return;
+            }
+            const row = event.target.closest?.("#leadsTableBody tr.lead-row");
+            if (row && event.target === row && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                openDrawer(row.dataset.leadId);
+            }
+        });
+
+        return { onStatusChanged };
     }
 
     // -------------------------------------------------------------
@@ -214,7 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const originalText = copyAiMessageBtn.textContent;
             try {
                 await navigator.clipboard.writeText(aiMessageText.value || "");
-                copyAiMessageBtn.textContent = "📋 Copiado!";
+                copyAiMessageBtn.textContent = "Copiado!";
                 setTimeout(() => {
                     copyAiMessageBtn.textContent = originalText;
                 }, 1600);
@@ -261,7 +507,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Keep quick verification action text aligned with lead-quality flow
         const aiBtn = card.querySelector(".run-ai-btn");
         if (aiBtn) {
-            aiBtn.textContent = "🪄 Verificar qualidade do lead";
+            aiBtn.textContent = "Verificar qualidade do lead";
         }
 
         // Set AI Analyzed Badge in header if not already present
@@ -269,7 +515,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (badgesContainer && !card.querySelector(".ai-badge-card")) {
             const aiBadge = document.createElement("span");
             aiBadge.className = "ai-badge-card";
-            aiBadge.textContent = "🤖 IA Analisou";
+            aiBadge.textContent = "IA Analisou";
             badgesContainer.insertBefore(aiBadge, badgesContainer.firstChild);
         }
 
@@ -302,7 +548,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const truncatedMotivo = result.ai_motivo.length > 140 ? result.ai_motivo.slice(0, 137) + "..." : result.ai_motivo;
         aiPreview.innerHTML = `
-            <span class="ai-box-title">🤖 Pré-análise do lead:</span>
+            <span class="ai-box-title">Pré-análise do lead:</span>
             <p class="ai-box-motivo">${truncatedMotivo}</p>
         `;
 
@@ -334,7 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const formData = new FormData(googlePlacesForm);
             const payload = Object.fromEntries(formData.entries());
 
-            setPlacesStatus("🔍 Buscando empresas reais na Apify...", "info");
+            setPlacesStatus("Buscando empresas reais na Apify...", "info");
             placesStatus.classList.add("loading-dots");
             placesResults.innerHTML = "";
             resultsToolbar.classList.add("hidden");
@@ -375,7 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const result = await postJson("/api/apify/salvar-todos", { leads: foundLeads });
             
             setPlacesStatus(result.message || "Leads processados.", result.ok ? "success" : "error");
-            saveAllButton.textContent = "💾 Salvar todos para validar";
+            saveAllButton.textContent = "Salvar todos para validar";
             saveAllButton.disabled = false;
         });
     }
@@ -402,7 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div>
                         <span class="tag-nicho">${escapeHtml(lead.nicho)}</span>
                         <h2>${escapeHtml(lead.nome_empresa)}</h2>
-                        <p class="location"><span class="loc-icon">📍</span> ${escapeHtml(lead.cidade)}</p>
+                        <p class="location"><span class="loc-icon">${svgIcon("map-pin")}</span> ${escapeHtml(lead.cidade)}</p>
                     </div>
                     <span class="potential-tag ${priorityClass(lead.prioridade)}">${escapeHtml(lead.prioridade === 'Alta' ? 'Potencial Alto' : lead.prioridade === 'Média' ? 'Potencial Médio' : 'Potencial Baixo')}</span>
                 </header>
@@ -421,7 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <button class="primary-button save-found-lead" type="button" data-index="${index}">Salvar lead</button>
                     <button class="secondary-button validate-found-lead" type="button" data-index="${index}">Validar lead</button>
                     <button class="ghost-button discard-found-lead" type="button" data-index="${index}">Descartar</button>
-                    ${lead.google_maps_url ? `<a class="icon-button maps-btn" href="${escapeAttribute(lead.google_maps_url)}" target="_blank" rel="noreferrer">🗺️ Maps</a>` : ""}
+                    ${lead.google_maps_url ? `<a class="icon-button maps-btn" href="${escapeAttribute(lead.google_maps_url)}" target="_blank" rel="noreferrer">${svgIcon("map")} Maps</a>` : ""}
                 </footer>
             `;
             placesResults.appendChild(card);
@@ -441,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await postJson("/api/apify/salvar", { lead });
         
         if (result.ok) {
-            saveButton.textContent = "✓ Salvo";
+            saveButton.textContent = "Salvo";
             saveButton.className = "icon-button success-btn";
             showToast("Lead salvo no CRM com sucesso!");
         } else {
@@ -511,7 +757,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function formatRating(lead) {
         if (!lead.avaliacao) return "Não informado";
         const count = lead.qtd_avaliacoes ?? 0;
-        return `⭐ ${escapeHtml(String(lead.avaliacao))} (${escapeHtml(String(count))} avaliações)`;
+        return `${svgIcon("star")} ${escapeHtml(String(lead.avaliacao))} (${escapeHtml(String(count))} avaliações)`;
+    }
+
+    // Ícones SVG inline usados em HTML gerado pelo JS (mesmo traço de icons.py).
+    function svgIcon(name) {
+        const paths = {
+            "map-pin": '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+            "map": '<path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4z"/><path d="M8 2v16"/><path d="M16 6v16"/>',
+            "star": '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/>'
+        };
+        return `<svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ""}</svg>`;
     }
 
     function escapeHtml(value) {
@@ -881,7 +1137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update main action button text
         const realBtn = card.querySelector(".run-real-ai-btn");
         if (realBtn) {
-            realBtn.textContent = "📋 Ver laudo do lead";
+            realBtn.textContent = "Ver laudo do lead";
         }
 
         // Set Real AI Analyzed Badge in header
@@ -899,7 +1155,7 @@ document.addEventListener("DOMContentLoaded", () => {
             realBadge.style.background = "rgba(168, 85, 247, 0.12)";
             realBadge.style.borderColor = "rgba(168, 85, 247, 0.3)";
             realBadge.style.color = "#c084fc";
-            realBadge.textContent = "🌐 IA Real Analisou";
+            realBadge.textContent = "IA Real Analisou";
             badgesContainer.insertBefore(realBadge, badgesContainer.firstChild);
         }
 
@@ -926,7 +1182,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         aiPreview.innerHTML = `
-            <span class="ai-box-title" style="color: #c084fc;">📋 Laudo de Verificação:</span>
+            <span class="ai-box-title" style="color: #c084fc;">Laudo de Verificação:</span>
             <p class="ai-box-motivo" style="color: #f3e8ff;">${truncatedMotivo}</p>
         `;
     }
@@ -960,7 +1216,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const originalText = copyRealAiMessageBtn.textContent;
             try {
                 await navigator.clipboard.writeText(realAiMessageText.value || "");
-                copyRealAiMessageBtn.textContent = "📋 Copiado!";
+                copyRealAiMessageBtn.textContent = "Copiado!";
                 setTimeout(() => copyRealAiMessageBtn.textContent = originalText, 1600);
             } catch (error) {
                 copyRealAiMessageBtn.textContent = "Erro ao copiar";
@@ -1011,7 +1267,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const summary = buildLaudoSummary();
             try {
                 await navigator.clipboard.writeText(summary);
-                copyRealAiSummaryBtn.textContent = "📋 Resumo copiado!";
+                copyRealAiSummaryBtn.textContent = "Resumo copiado!";
                 setTimeout(() => copyRealAiSummaryBtn.textContent = originalText, 1600);
             } catch (error) {
                 copyRealAiSummaryBtn.textContent = "Erro ao copiar";
@@ -1101,7 +1357,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnTestApify) {
         btnTestApify.addEventListener("click", async () => {
             btnTestApify.disabled = true;
-            btnTestApify.textContent = "🔌 Conectando à API do Apify...";
+            btnTestApify.textContent = "Conectando à API do Apify...";
             apifyTestStatus.classList.add("hidden");
 
             try {
@@ -1133,7 +1389,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast("Erro de conexão ao testar Apify.", "error");
             } finally {
                 btnTestApify.disabled = false;
-                btnTestApify.textContent = "🔌 Testar Conexão com Apify";
+                btnTestApify.textContent = "Testar Conexão com Apify";
             }
         });
     }

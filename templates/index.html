@@ -14,37 +14,37 @@
 
 <section class="metrics-grid metrics-grid-6">
     <article class="metric-card">
-        <span class="metric-icon">🛡️</span>
+        <span class="metric-icon">{{ icon('shield') }}</span>
         <p>Leads verificados</p>
         <strong>{{ metrics.leads_validados }}</strong>
         <small>↗ +18%</small>
     </article>
     <article class="metric-card">
-        <span class="metric-icon metric-icon-good">💬</span>
+        <span class="metric-icon metric-icon-good">{{ icon('message') }}</span>
         <p>WhatsApps compatíveis</p>
         <strong>{{ metrics.whatsapps_compativeis }}</strong>
         <small>↗ +12%</small>
     </article>
     <article class="metric-card">
-        <span class="metric-icon metric-icon-good">✔️</span>
+        <span class="metric-icon metric-icon-good">{{ icon('check') }}</span>
         <p>Leads aprovados</p>
         <strong>{{ metrics.leads_aprovados }}</strong>
         <small>↗ +7%</small>
     </article>
     <article class="metric-card">
-        <span class="metric-icon">📦</span>
+        <span class="metric-icon">{{ icon('package') }}</span>
         <p>Sem site próprio</p>
         <strong>{{ metrics.sem_site }}</strong>
         <small>↗ +22%</small>
     </article>
     <article class="metric-card">
-        <span class="metric-icon metric-icon-warn">🧱</span>
+        <span class="metric-icon metric-icon-warn">{{ icon('layout') }}</span>
         <p>Sites terceirizados</p>
         <strong>{{ metrics.site_terceirizado }}</strong>
         <small>↗ +9%</small>
     </article>
     <article class="metric-card">
-        <span class="metric-icon metric-icon-bad">⚠️</span>
+        <span class="metric-icon metric-icon-bad">{{ icon('alert') }}</span>
         <p>Leads com ressalvas</p>
         <strong>{{ metrics.leads_com_ressalvas }}</strong>
         <small>↘ -4%</small>
@@ -135,7 +135,7 @@
                     {% else %}
                     <tr><td colspan="7">
                         <div class="empty-state-card">
-                            <div class="empty-state-icon">📭</div>
+                            <div class="empty-state-icon">{{ icon('inbox') }}</div>
                             <h3>Nenhum lead encontrado</h3>
                             <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
                             <a href="{{ url_for('buscar_leads') }}" class="primary-button">Capturar leads</a>
@@ -254,7 +254,7 @@
                 {% else %}
                 <tr><td colspan="8">
                     <div class="empty-state-card">
-                        <div class="empty-state-icon">🔎</div>
+                        <div class="empty-state-icon">{{ icon('search') }}</div>
                         <h3>Nenhum lead encontrado com os filtros atuais</h3>
                         <p>Limpe os filtros ou capture novos leads para continuar a validação.</p>
                         <a href="{{ url_for('buscar_leads') }}" class="primary-button">Capturar leads</a>

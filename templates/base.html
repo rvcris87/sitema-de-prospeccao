@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Radar Local IA{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20260529c') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20261103b') }}">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="dashboard-body">
     <aside class="sidebar">
         <a class="brand" href="{{ url_for('index') }}">
-            <span class="brand-mark">🎯</span>
+            <span class="brand-mark">{{ icon('target') }}</span>
             <span>
                 <strong>Radar Local IA</strong>
                 <small>LEAD INTELLIGENCE</small>
@@ -19,31 +19,31 @@
 
         <nav class="nav">
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
-                <span class="nav-icon">📊</span> Dashboard
+                <span class="nav-icon">{{ icon('chart') }}</span> Dashboard
             </a>
             <a href="{{ url_for('leads_page') }}" class="nav-link {% if active_page == 'leads' %}active{% endif %}">
-                <span class="nav-icon">👥</span> Leads
+                <span class="nav-icon">{{ icon('users') }}</span> Leads
             </a>
             <a href="{{ url_for('buscar_leads') }}" class="nav-link {% if active_page == 'capturar' %}active{% endif %}">
-                <span class="nav-icon">🎯</span> Capturar Leads
+                <span class="nav-icon">{{ icon('target') }}</span> Capturar Leads
             </a>
             <a href="{{ url_for('laudos_page') }}" class="nav-link {% if active_page == 'laudos' %}active{% endif %}">
-                <span class="nav-icon">📄</span> Laudos
+                <span class="nav-icon">{{ icon('file') }}</span> Laudos
             </a>
             <a href="{{ url_for('mensagens_page') }}" class="nav-link {% if active_page == 'mensagens' %}active{% endif %}">
-                <span class="nav-icon">💬</span> Mensagens
+                <span class="nav-icon">{{ icon('message') }}</span> Mensagens
             </a>
             <a href="{{ url_for('oportunidades_page') }}" class="nav-link {% if active_page == 'oportunidades' %}active{% endif %}">
-                <span class="nav-icon">🧲</span> Oportunidades
+                <span class="nav-icon">{{ icon('magnet') }}</span> Oportunidades
             </a>
             <a href="{{ url_for('insights_page') }}" class="nav-link {% if active_page == 'insights' %}active{% endif %}">
-                <span class="nav-icon">✨</span> Insights da IA
+                <span class="nav-icon">{{ icon('sparkles') }}</span> Insights da IA
             </a>
             <a href="{{ url_for('configuracoes_page') }}" class="nav-link {% if active_page == 'configuracoes' %}active{% endif %}">
-                <span class="nav-icon">⚙️</span> Configurações
+                <span class="nav-icon">{{ icon('settings') }}</span> Configurações
             </a>
             <a href="{{ url_for('logout') }}" class="nav-link">
-                <span class="nav-icon">🚪</span> Sair
+                <span class="nav-icon">{{ icon('logout') }}</span> Sair
             </a>
         </nav>
 
@@ -62,19 +62,19 @@
                     <span>{{ current_user.plano }}</span>
                 </div>
             </div>
-            <a href="{{ url_for('new_lead') }}" class="btn-logout">➕ Novo lead</a>
+            <a href="{{ url_for('new_lead') }}" class="btn-logout">{{ icon('plus') }} Novo lead</a>
         </div>
     </aside>
 
     <main class="main">
-        <button type="button" class="mobile-sidebar-toggle" id="mobileSidebarToggle">☰ Menu</button>
+        <button type="button" class="mobile-sidebar-toggle" id="mobileSidebarToggle">{{ icon('menu') }} Menu</button>
         <header class="main-header">
             <div class="top-search-wrap">
                 <input class="top-search" type="search" placeholder="Buscar empresa, cidade ou laudo...">
             </div>
             <div class="main-header-actions">
                 <button class="secondary-button period-chip" type="button">Últimos 30 dias</button>
-                <button class="icon-button notif-chip" type="button">🔔</button>
+                <button class="icon-button notif-chip" type="button">{{ icon('bell') }}</button>
                 <div class="profile-pill">
                     <span class="avatar avatar-sm">{{ (current_user.nome or 'U')[:2]|upper }}</span>
                     <div class="profile-info">
@@ -105,7 +105,7 @@
     <div id="aiModal" class="modal-overlay hidden">
         <div class="glass-card modal-card">
             <div class="modal-header">
-                <h3>🪄 Laudo do Lead</h3>
+                <h3>{{ icon('wand') }} Laudo do Lead</h3>
                 <button type="button" class="modal-close" id="closeAiModal">×</button>
             </div>
             
@@ -116,10 +116,10 @@
                         <div class="scan-line"></div>
                     </div>
                     <div class="loading-steps">
-                        <p class="step active" data-step="1">📡 Iniciando verificação do lead...</p>
-                        <p class="step" data-step="2">🔎 Validando presença digital...</p>
-                        <p class="step" data-step="3">📊 Classificando qualidade do lead...</p>
-                        <p class="step" data-step="4">📝 Gerando abordagem baseada no laudo...</p>
+                        <p class="step active" data-step="1">{{ icon('radar') }} Iniciando verificação do lead...</p>
+                        <p class="step" data-step="2">{{ icon('search') }} Validando presença digital...</p>
+                        <p class="step" data-step="3">{{ icon('chart') }} Classificando qualidade do lead...</p>
+                        <p class="step" data-step="4">{{ icon('edit') }} Gerando abordagem baseada no laudo...</p>
                     </div>
                 </div>
 
@@ -147,10 +147,10 @@
                             <textarea id="aiMessageText" readonly class="ai-message-textarea"></textarea>
                             <div class="message-actions">
                                 <button type="button" class="btn btn-outline btn-small" id="copyAiMessage">
-                                    📋 Copiar Texto
+                                    {{ icon('clipboard') }} Copiar Texto
                                 </button>
                                 <a href="#" target="_blank" rel="noreferrer" class="btn btn-primary btn-small" id="sendAiWhatsapp">
-                                    💬 Enviar WhatsApp
+                                    {{ icon('message') }} Enviar WhatsApp
                                 </a>
                             </div>
                         </div>
@@ -164,7 +164,7 @@
     <div id="realAiModal" class="modal-overlay hidden">
         <div class="glass-card modal-card real-ai-modal-card">
             <div class="modal-header">
-                <h3>📋 Laudo do Lead - Verificação Inteligente</h3>
+                <h3>{{ icon('clipboard') }} Laudo do Lead - Verificação Inteligente</h3>
                 <button type="button" class="modal-close" id="closeRealAiModal">×</button>
             </div>
 
@@ -174,10 +174,10 @@
                         <div class="scan-line"></div>
                     </div>
                     <div class="loading-steps">
-                        <p class="step active" data-step="1">🌐 Iniciando pesquisa web em tempo real...</p>
-                        <p class="step" data-step="2">🔎 Validando sinais de atividade pública...</p>
-                        <p class="step" data-step="3">📱 Verificando compatibilidade de WhatsApp...</p>
-                        <p class="step" data-step="4">📋 Montando laudo de qualidade do lead...</p>
+                        <p class="step active" data-step="1">{{ icon('globe') }} Iniciando pesquisa web em tempo real...</p>
+                        <p class="step" data-step="2">{{ icon('search') }} Validando sinais de atividade pública...</p>
+                        <p class="step" data-step="3">{{ icon('phone') }} Verificando compatibilidade de WhatsApp...</p>
+                        <p class="step" data-step="4">{{ icon('clipboard') }} Montando laudo de qualidade do lead...</p>
                     </div>
                 </div>
 
@@ -305,9 +305,9 @@
                         <div class="message-container">
                             <textarea id="realAiMessageText" readonly class="ai-message-textarea"></textarea>
                             <div class="message-actions">
-                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiSummary">📋 Copiar resumo do laudo</button>
-                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">💬 Copiar mensagem de abordagem</button>
-                                <button type="button" class="btn btn-secondary btn-small" id="regenerateApproachBtn">🔄 Gerar nova abordagem</button>
+                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiSummary">{{ icon('clipboard') }} Copiar resumo do laudo</button>
+                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">{{ icon('message') }} Copiar mensagem de abordagem</button>
+                                <button type="button" class="btn btn-secondary btn-small" id="regenerateApproachBtn">{{ icon('refresh') }} Gerar nova abordagem</button>
                             </div>
                         </div>
                     </div>
@@ -320,7 +320,7 @@
             </div>
 
             <div class="modal-footer real-ai-footer">
-                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn">🔄 Verificar lead com IA novamente</button>
+                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn">{{ icon('refresh') }} Verificar lead com IA novamente</button>
                 <button type="button" class="btn btn-outline btn-small" id="closeRealAiModalFooter">Fechar</button>
             </div>
         </div>
@@ -329,7 +329,7 @@
     <!-- Toast Notification -->
     <div id="toastNotification" class="toast hidden">Status atualizado!</div>
 
-    <script src="{{ url_for('static', filename='js/app.js', v='20261103a') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js', v='20261103b') }}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var toggle = document.getElementById("mobileSidebarToggle");

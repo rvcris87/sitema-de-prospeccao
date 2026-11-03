@@ -20,7 +20,7 @@
     </div>
     {% else %}
     <div class="empty-state-card">
-        <div class="empty-state-icon">✨</div>
+        <div class="empty-state-icon">{{ icon('sparkles') }}</div>
         <h3>Nenhum insight disponível</h3>
         <p>Assim que houver leads validados, os insights estratégicos aparecem aqui.</p>
         <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>

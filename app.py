@@ -5,7 +5,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from functools import wraps
+from collections import Counter
+from urllib.parse import quote
 import json
+import unicodedata
+
+from icons import icon
 
 BOOT_IMPORT_ERROR = None
 try:
@@ -66,6 +71,7 @@ def utility_processor():
         "normalize_instagram": normalize_instagram,
         "only_digits": only_digits,
         "whatsapp_link": whatsapp_link,
+        "icon": icon,
         "current_user": current_user,
     }
 
@@ -193,6 +199,7 @@ def logout():
 
 
 FILTER_KEYS = (
+    "q",
     "nicho",
     "cidade",
     "prioridade",
@@ -247,10 +254,34 @@ def processar_lead(row):
         or "Sem conclusão de laudo para este lead."
     )
     lead["_instagram_encontrado"] = laudo.get("instagram_encontrado") or "incerto"
+    lead["_validado"] = bool(lead.get("ia_real_resultado"))
+    try:
+        score = int(float(lead["_score"]))
+    except (TypeError, ValueError):
+        score = 0
+    lead["_score"] = score
+    # Nível usado para a cor do score: verde, amarelo, vermelho ou cinza (sem laudo).
+    if not lead["_validado"] and not score:
+        lead["_score_nivel"] = "nenhum"
+    elif score >= 70:
+        lead["_score_nivel"] = "alto"
+    elif score >= 40:
+        lead["_score_nivel"] = "medio"
+    else:
+        lead["_score_nivel"] = "baixo"
     return lead
 
 
+def normalizar_busca(texto):
+    """Minúsculas e sem acentos, para a busca por nome."""
+    texto = unicodedata.normalize("NFKD", str(texto or "").lower())
+    return "".join(c for c in texto if not unicodedata.combining(c)).strip()
+
+
 def passes_advanced_filters(lead, filters):
+    busca = normalizar_busca(filters.get("q"))
+    if busca and busca not in normalizar_busca(lead.get("nome_empresa")):
+        return False
     if filters["tipo_site"] and lead.get("_site_tipo") != filters["tipo_site"]:
         return False
     if filters["whatsapp_compat"] and lead.get("_whatsapp_compat") != filters["whatsapp_compat"]:
@@ -350,6 +381,110 @@ def lead_para_api(lead):
     return {key: value for key, value in lead.items() if key not in API_LEAD_EXCLUDE}
 
 
+def get_leads_com_contagem(filters):
+    """Leads filtrados + contagem por status do funil.
+
+    A contagem ignora o filtro de status (respeita busca, nicho, cidade...),
+    para que os chips mostrem quantos leads cada status teria.
+    """
+    sem_status = {**filters, "status": ""}
+    base = get_leads_filtrados(sem_status)
+    contagem = Counter(lead.get("status") or "" for lead in base)
+    contagens = {status: contagem.get(status, 0) for status in STATUS_OPTIONS}
+    contagens["_total"] = len(base)
+    status = (filters.get("status") or "").strip()
+    leads = [lead for lead in base if lead.get("status") == status] if status else base
+    return leads, contagens
+
+
+def _selo(nivel, rotulo, detalhe=""):
+    return {"nivel": nivel, "rotulo": rotulo, "detalhe": detalhe or ""}
+
+
+def montar_presenca(lead):
+    """Selos de presença digital (good/warn/bad) com links, para o painel lateral."""
+    laudo = lead.get("_laudo") or {}
+    validado = lead.get("_validado")
+
+    telefone = (lead.get("telefone_whatsapp") or "").strip()
+    wa_link = whatsapp_link(telefone)
+    compat = lead.get("_whatsapp_compat")
+    if not telefone:
+        whatsapp = _selo("bad", "Não informado")
+    elif not validado:
+        whatsapp = _selo("warn", "Não validado")
+    elif compat == "compativel":
+        whatsapp = _selo("good", "Verificado")
+    elif compat == "divergente":
+        whatsapp = _selo("bad", "Divergente")
+    else:
+        whatsapp = _selo("warn", "Incerto")
+    whatsapp.update(valor=telefone, link=wa_link)
+    whatsapp["detalhe"] = laudo.get("observacao_whatsapp") or ""
+
+    insta_link = normalize_instagram(lead.get("instagram"))
+    encontrado = lead.get("_instagram_encontrado")
+    if validado and encontrado == "sim":
+        instagram = _selo("good", "Encontrado")
+    elif validado and encontrado == "nao" and not insta_link:
+        instagram = _selo("bad", "Não encontrado")
+    elif insta_link and not validado:
+        instagram = _selo("warn", "Não validado")
+    elif insta_link:
+        instagram = _selo("warn", "Incerto")
+    else:
+        instagram = _selo("bad", "Não informado")
+    instagram.update(valor=(lead.get("instagram") or "").strip(), link=insta_link)
+    instagram["detalhe"] = laudo.get("instagram_observacao_oportunidade") or ""
+
+    site_link = normalize_url(lead.get("site"))
+    tipo = lead.get("_site_tipo")
+    if validado and tipo in ("site_proprio", "proprio"):
+        site = _selo("good", "Site próprio")
+    elif validado and tipo in ("site_terceirizado", "cardapio_plataforma_externa", "generico"):
+        site = _selo("warn", "Site terceirizado")
+    elif validado and tipo in ("nao_encontrado", "rede_social"):
+        site = _selo("bad", "Sem site próprio")
+    elif site_link and not validado:
+        site = _selo("warn", "Não validado")
+    elif site_link:
+        site = _selo("warn", "Incerto")
+    else:
+        site = _selo("bad", "Sem site")
+    site.update(valor=(lead.get("site") or "").strip(), link=site_link)
+    site["detalhe"] = laudo.get("motivo_qualidade_site") or lead.get("qualidade_site") or ""
+
+    return {"whatsapp": whatsapp, "instagram": instagram, "site": site}
+
+
+def montar_detalhe(lead):
+    """Dados extras do painel: presença digital, fontes e mensagem de abordagem."""
+    laudo = lead.get("_laudo") or {}
+    try:
+        fontes = json.loads(lead.get("ia_real_fontes") or "[]")
+    except Exception:
+        fontes = []
+    fontes = [f for f in fontes if isinstance(f, str) and f.startswith(("http://", "https://"))]
+
+    mensagem = laudo.get("mensagem_whatsapp") or lead.get("mensagem") or ""
+    presenca = montar_presenca(lead)
+    wa_link = presenca["whatsapp"]["link"]
+    if wa_link and mensagem:
+        wa_link = f"{wa_link}?text={quote(mensagem)}"
+    return {
+        "presenca": presenca,
+        "fontes": fontes,
+        "mensagem": mensagem,
+        "whatsapp_abordagem": wa_link,
+        "proximo_passo": laudo.get("proximo_passo") or "",
+        "analisado_em": lead.get("analisado_em") or "",
+    }
+
+
+def render_lead_row(lead):
+    return render_template("partials/lead_rows.html", leads=[lead], status_options=STATUS_OPTIONS)
+
+
 @app.route("/dashboard")
 @app.route("/app")
 @login_required
@@ -409,10 +544,13 @@ def buscar_leads():
 @login_required
 def leads_page():
     filters = get_filters()
+    leads, contagens = get_leads_com_contagem(filters)
     return render_template(
         "leads.html",
         active_page="leads",
-        leads=get_leads_filtrados(filters),
+        leads=leads,
+        contagens=contagens,
+        filtrado=has_active_filters(filters),
         filters=filters,
         filter_options=get_filter_options(),
         status_options=STATUS_OPTIONS,
@@ -422,16 +560,42 @@ def leads_page():
 @app.route("/api/leads", methods=["GET"])
 @login_required
 def api_list_leads():
-    leads = get_leads_filtrados(get_filters())
+    filters = get_filters()
+    leads, contagens = get_leads_com_contagem(filters)
     return jsonify(
         {
             "ok": True,
             "total": len(leads),
+            "contagens": contagens,
             "leads": [lead_para_api(lead) for lead in leads],
             # Linhas já renderizadas pelo mesmo partial do leads.html (evita duplicar markup no JS).
             "html": render_template(
-                "partials/lead_rows.html", leads=leads, status_options=STATUS_OPTIONS
+                "partials/lead_rows.html",
+                leads=leads,
+                status_options=STATUS_OPTIONS,
+                filtrado=any((filters.get(k) or "").strip() for k in filters),
             ),
+        }
+    )
+
+
+@app.route("/api/leads/<int:lead_id>", methods=["GET"])
+@login_required
+def api_get_lead(lead_id):
+    row = get_lead(lead_id)
+    if row is None:
+        return jsonify({"ok": False, "message": "Lead não encontrado."}), 404
+    lead = processar_lead(row)
+    detalhe = montar_detalhe(lead)
+    return jsonify(
+        {
+            "ok": True,
+            "lead": lead_para_api(lead),
+            "detalhe": detalhe,
+            "drawer_html": render_template(
+                "partials/lead_drawer.html", lead=lead, detalhe=detalhe, status_options=STATUS_OPTIONS
+            ),
+            "row_html": render_lead_row(lead),
         }
     )
 
@@ -674,7 +838,7 @@ def api_update_status(lead_id):
         "message": "Status atualizado com sucesso.",
         "status": new_status,
         "lead": lead_para_api(lead),
-        "html": render_template("partials/lead_rows.html", leads=[lead], status_options=STATUS_OPTIONS),
+        "html": render_lead_row(lead),
     })
 
 

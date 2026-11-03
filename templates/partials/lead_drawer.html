@@ -1,0 +1,99 @@
+{# Conteúdo do painel lateral do lead. Renderizado por GET /api/leads/<id>. #}
+{% set p = detalhe.presenca %}
+<div class="lv-drawer-inner" data-lead-id="{{ lead.id }}" data-validado="{{ 1 if lead._validado else 0 }}">
+    <header class="lv-drawer-head">
+        <h2 id="leadDrawerTitle">{{ lead.nome_empresa }}</h2>
+        <p class="lv-drawer-meta">
+            <span>{{ lead.nicho or 'Nicho não informado' }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ icon('map-pin', 14) }} {{ lead.cidade or 'Cidade não informada' }}</span>
+        </p>
+        <div class="lv-drawer-kpis">
+            <div class="lv-kpi">
+                <span class="lv-kpi-label">Score</span>
+                {% if lead._score_nivel == 'nenhum' %}
+                <span class="score score-nenhum">Não validado</span>
+                {% else %}
+                <span class="score score-{{ lead._score_nivel }}"><b>{{ lead._score }}</b><small>/100</small>
+                    <span class="score-bar" aria-hidden="true"><i style="width: {{ [lead._score, 100]|min }}%"></i></span>
+                </span>
+                {% endif %}
+            </div>
+            <label class="lv-kpi">
+                <span class="lv-kpi-label">Status do funil</span>
+                <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}">
+                    {% for option in status_options %}<option value="{{ option }}" {% if lead.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+                </select>
+            </label>
+        </div>
+    </header>
+
+    <div class="lv-drawer-actions">
+        <button class="lv-btn lv-btn-primary js-drawer-validate" type="button">
+            {{ icon('refresh' if lead._validado else 'sparkles', 16) }}
+            <span>{{ 'Revalidar com IA' if lead._validado else 'Validar com IA' }}</span>
+        </button>
+        {% if detalhe.whatsapp_abordagem %}
+        <a class="lv-btn lv-btn-whats" href="{{ detalhe.whatsapp_abordagem }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}<span>Abrir WhatsApp</span></a>
+        {% else %}
+        <span class="lv-btn lv-btn-ghost is-disabled" aria-disabled="true" title="Lead sem telefone">{{ icon('phone-off', 16) }}<span>Sem WhatsApp</span></span>
+        {% endif %}
+        <a class="lv-btn lv-btn-ghost" href="{{ url_for('edit_lead', lead_id=lead.id) }}">{{ icon('edit', 16) }}<span>Editar</span></a>
+        <form method="post" action="{{ url_for('remove_lead', lead_id=lead.id) }}" class="delete-form">
+            <button class="lv-btn lv-btn-danger" type="submit">{{ icon('trash', 16) }}<span>Excluir</span></button>
+        </form>
+    </div>
+
+    <section class="lv-block">
+        <h3>Presença digital</h3>
+        <ul class="lv-presence">
+            {% for chave, rotulo, ic in [('whatsapp', 'WhatsApp', 'whatsapp'), ('instagram', 'Instagram', 'instagram'), ('site', 'Site', 'globe')] %}
+            {% set item = p[chave] %}
+            <li>
+                <span class="lv-presence-icon">{{ icon(ic, 18) }}</span>
+                <div class="lv-presence-body">
+                    <div class="lv-presence-top">
+                        <strong>{{ rotulo }}</strong>
+                        <span class="selo selo-{{ item.nivel }}">{{ item.rotulo }}</span>
+                    </div>
+                    {% if item.link %}
+                    <a class="lv-presence-link" href="{{ item.link }}" target="_blank" rel="noopener">{{ item.valor or item.link }} {{ icon('external', 13) }}</a>
+                    {% elif item.valor %}
+                    <span class="lv-presence-value">{{ item.valor }}</span>
+                    {% endif %}
+                    {% if item.detalhe %}<p class="lv-presence-note">{{ item.detalhe }}</p>{% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="lv-block">
+        <h3>Diagnóstico</h3>
+        <p class="lv-text">{{ lead._conclusao }}</p>
+        {% if detalhe.proximo_passo %}
+        <p class="lv-next"><strong>Próximo passo:</strong> {{ detalhe.proximo_passo }}</p>
+        {% endif %}
+        {% if detalhe.analisado_em %}<p class="lv-muted">Analisado em {{ detalhe.analisado_em }}</p>{% endif %}
+    </section>
+
+    {% if detalhe.mensagem %}
+    <section class="lv-block">
+        <h3>Mensagem de abordagem</h3>
+        <p class="lv-text lv-message">{{ detalhe.mensagem }}</p>
+    </section>
+    {% endif %}
+
+    <section class="lv-block">
+        <h3>Fontes</h3>
+        {% if detalhe.fontes %}
+        <ul class="lv-sources">
+            {% for url in detalhe.fontes %}
+            <li><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ icon('link', 13) }} {{ url.split('//', 1)[-1].split('/', 1)[0].replace('www.', '') }}</a></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="lv-muted">{{ 'Nenhuma fonte registrada no laudo.' if lead._validado else 'Valide o lead com IA para ver as fontes consultadas.' }}</p>
+        {% endif %}
+    </section>
+</div>

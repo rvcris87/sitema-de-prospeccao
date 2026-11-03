@@ -74,7 +74,7 @@
                 {% else %}
                 <tr><td colspan="8">
                     <div class="empty-state-card">
-                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-icon">{{ icon('clipboard') }}</div>
                         <h3>Nenhum laudo gerado ainda</h3>
                         <p>Valide leads para preencher esta área com relatórios de qualidade.</p>
                         <a href="{{ url_for('leads_page') }}" class="primary-button">Ir para Leads</a>

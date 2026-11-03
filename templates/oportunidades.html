@@ -33,7 +33,7 @@
         </div>
     {% else %}
         <div class="empty-state-card">
-            <div class="empty-state-icon">🧲</div>
+            <div class="empty-state-icon">{{ icon('magnet') }}</div>
             <h3>Nenhuma oportunidade encontrada</h3>
             <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
             <a class="primary-button" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
