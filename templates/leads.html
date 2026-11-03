@@ -6,6 +6,7 @@
 <div class="leads-v2">
     <header class="lv-header">
         <div>
+            <p class="eyebrow">Funil Comercial</p>
             <h1>Leads</h1>
             <p>Escolha quem abordar primeiro. Clique em um lead para ver a presença digital e o diagnóstico.</p>
         </div>
@@ -29,6 +30,11 @@
             <select name="cidade" aria-label="Cidade">
                 <option value="">Todas as cidades</option>
                 {% for option in filter_options.cidades %}<option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+            </select>
+            <select name="aprovacao" aria-label="Aprovação do laudo">
+                <option value="">Qualquer aprovação</option>
+                <option value="sim" {% if filters.aprovacao == 'sim' %}selected{% endif %}>Aprovados</option>
+                <option value="com_ressalvas" {% if filters.aprovacao == 'com_ressalvas' %}selected{% endif %}>Com ressalvas</option>
             </select>
             <a class="lv-link" href="{{ url_for('leads_page') }}" data-clear-filters>Limpar</a>
             <noscript><button class="lv-btn lv-btn-ghost" type="submit">Filtrar</button></noscript>

@@ -8,6 +8,7 @@ from functools import wraps
 from collections import Counter
 from urllib.parse import quote
 import json
+import sqlite3
 import unicodedata
 
 from icons import icon
@@ -57,6 +58,22 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.before_request
+def atualizar_plano_da_sessao():
+    """Relê o plano no banco a cada request logado, para o topo não mostrar um plano antigo."""
+    if not session.get("logged_in") or request.endpoint == "static":
+        return
+    email = session.get("user_email")
+    if not email:
+        return
+    try:
+        user = get_user_by_email(email)
+    except sqlite3.Error:
+        return  # Banco indisponível: mantém o que já está na sessão.
+    if user and session.get("user_plan") != user["plano"]:
+        session["user_plan"] = user["plano"]
 
 
 @app.context_processor
@@ -210,6 +227,7 @@ FILTER_KEYS = (
     "instagram_encontrado",
     "origem_lead",
     "data_referencia",
+    "aprovacao",
 )
 
 # Campos calculados que o front precisa; _laudo fica de fora da API (já vem em ia_real_resultado).
@@ -289,6 +307,9 @@ def passes_advanced_filters(lead, filters):
     if filters["instagram_encontrado"] and lead.get("_instagram_encontrado") != filters["instagram_encontrado"]:
         return False
     if filters["origem_lead"] and (lead.get("origem_lead") or "").strip() != filters["origem_lead"]:
+        return False
+    # aprovacao=sim: só leads cujo laudo aprovou a abordagem.
+    if filters.get("aprovacao") and (lead.get("_laudo") or {}).get("lead_aprovado_abordagem") != filters["aprovacao"]:
         return False
     if filters["data_referencia"]:
         created_at = str(lead.get("created_at") or "")
@@ -712,7 +733,16 @@ def laudos_page():
 @app.route("/mensagens")
 @login_required
 def mensagens_page():
-    return render_template("mensagens.html", active_page="mensagens", leads=get_leads_filtrados())
+    leads = get_leads_filtrados()
+    com_laudo = [lead for lead in leads if lead.get("_validado")]
+    aprovados = [lead for lead in com_laudo if lead.get("_status_geral") == "Aprovado"]
+    return render_template(
+        "mensagens.html",
+        active_page="mensagens",
+        leads=leads,
+        total_com_laudo=len(com_laudo),
+        total_aprovados=len(aprovados),
+    )
 
 
 @app.route("/oportunidades")

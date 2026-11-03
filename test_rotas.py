@@ -86,6 +86,29 @@ class TestRotas(unittest.TestCase):
                 self.assertEqual(client.get(rota).status_code, 200)
         self.assertEqual(client.get("/api/leads/99999999").status_code, 404)
 
+    def test_filtro_aprovacao(self):
+        client = self.logado()
+        leads = client.get("/api/leads?aprovacao=sim").get_json()["leads"]
+        for lead in leads:
+            self.assertEqual(lead["_status_geral"], "Aprovado")
+
+    def test_plano_vem_do_banco(self):
+        client = self.logado()
+        with app_module.get_connection() as connection:
+            antigo = connection.execute(
+                "SELECT plano FROM users WHERE email = ?", ("demo@radarlocal.com",)
+            ).fetchone()["plano"]
+            connection.execute(
+                "UPDATE users SET plano = ? WHERE email = ?", ("Plano Mudado", "demo@radarlocal.com")
+            )
+        try:
+            self.assertIn("Plano Mudado", client.get("/dashboard").get_data(as_text=True))
+        finally:
+            with app_module.get_connection() as connection:
+                connection.execute(
+                    "UPDATE users SET plano = ? WHERE email = ?", (antigo, "demo@radarlocal.com")
+                )
+
     def test_sem_login_redireciona(self):
         client = self.app.test_client()
         self.assertEqual(client.get("/dashboard").status_code, 302)

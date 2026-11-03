@@ -12,6 +12,26 @@
 </section>
 
 <section class="panel">
+    {% if total_com_laudo %}
+    <div class="empty-state-card ready-state-card">
+        <div class="empty-state-icon">{{ icon('message') }}</div>
+        <h3>{{ total_com_laudo }} {{ 'lead com laudo pronto' if total_com_laudo == 1 else 'leads com laudo prontos' }} para abordagem</h3>
+        <p>
+            {% if total_aprovados %}
+            {{ total_aprovados }} {{ 'foi aprovado' if total_aprovados == 1 else 'foram aprovados' }} pela análise para o primeiro contato.
+            {% else %}
+            Nenhum laudo aprovou a abordagem ainda; revise os leads com ressalvas.
+            {% endif %}
+            O gerador de mensagens chega numa próxima etapa.
+        </p>
+        <div class="form-actions">
+            {% if total_aprovados %}
+            <a class="primary-button" href="{{ url_for('leads_page', aprovacao='sim') }}">Ver leads aprovados</a>
+            {% endif %}
+            <a class="secondary-button" href="{{ url_for('laudos_page') }}">Ver laudos</a>
+        </div>
+    </div>
+    {% else %}
     <div class="empty-state-card">
         <div class="empty-state-icon">{{ icon('message') }}</div>
         <h3>Nenhuma mensagem criada</h3>
@@ -21,5 +41,6 @@
             <a class="secondary-button" href="{{ url_for('leads_page') }}">Ir para Leads</a>
         </div>
     </div>
+    {% endif %}
 </section>
 {% endblock %}

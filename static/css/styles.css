@@ -1491,3 +1491,54 @@ svg.icon { display: inline-block; vertical-align: -0.2em; }
 
 /* Topo sem busca/período/sino (não tinham função): perfil alinhado à direita */
 .main-header { justify-content: flex-end; }
+
+/* =============================================================
+   Etapa 2.2: acabamento visual
+   ============================================================= */
+/* O .main ocupa a tela inteira; sem isto o grid esticava as linhas em
+   páginas curtas e a topbar e o cabeçalho ficavam com sobra embaixo. */
+.main { align-content: start; }
+
+/* Cabeçalho de página único: sobretítulo + título + subtítulo, no fundo da página. */
+.main > .page-header {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 26px 4px 6px;
+    min-height: 0;
+    align-items: flex-end;
+}
+.page-header .eyebrow,
+.lv-header .eyebrow {
+    color: #c75f1d;
+    font-size: .74rem;
+    letter-spacing: .14em;
+    margin-bottom: 6px;
+}
+.page-header h1,
+.lv-header h1 { font-size: clamp(1.6rem, 2.4vw, 2.05rem); line-height: 1.15; letter-spacing: -0.02em; }
+.page-header .subtitle,
+.lv-header p:not(.eyebrow) { margin: 6px 0 0; max-width: 64ch; }
+.page-header > div > :last-child { margin-bottom: 0; }
+/* Leads usa o mesmo alinhamento vertical do cabeçalho das outras páginas. */
+.lv-header { padding: 20px 4px 6px; }
+
+/* Cards de métricas: 3 + 3 no desktop, 2 no tablet, 1 no celular. */
+.metrics-grid.metrics-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.metrics-grid-6 .metric-card { min-height: 0; }
+@media (max-width: 1100px) {
+    .metrics-grid.metrics-grid-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .metrics-grid.metrics-grid-6 { grid-template-columns: 1fr; }
+}
+
+/* Mensagens: leads com laudo prontos para abordagem */
+.ready-state-card .empty-state-icon { color: var(--primary); }
+.ready-state-card p { max-width: 56ch; margin-inline: auto; }
+
+@media (max-width: 720px) {
+    .main > .page-header { padding: 18px 2px 4px; }
+    .lv-header { padding: 12px 2px 4px; }
+}
