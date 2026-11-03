@@ -2,30 +2,92 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------------------
     // 1. CRM Dynamic Status Updates
     // -------------------------------------------------------------
-    const statusSelects = document.querySelectorAll(".crm-status-select");
-    statusSelects.forEach(select => {
-        select.addEventListener("change", async (event) => {
-            const leadId = select.dataset.leadId;
-            const newStatus = select.value;
-            
+    // Delegado no document: continua funcionando depois que o tbody é re-renderizado.
+    document.addEventListener("change", async (event) => {
+        const select = event.target.closest(".crm-status-select");
+        if (!select) return;
+        const leadId = select.dataset.leadId;
+        const newStatus = select.value;
+
+        try {
+            const response = await fetch(`/api/leads/${leadId}/status`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const result = await response.json();
+
+            if (response.ok && result.ok) {
+                // Na tabela de leads, troca só a linha deste lead pelo HTML vindo do servidor.
+                const row = select.closest("#leadsTableBody tr.lead-card");
+                if (row && result.html) {
+                    const template = document.createElement("template");
+                    template.innerHTML = result.html.trim();
+                    const newRow = template.content.querySelector("tr.lead-card");
+                    if (newRow) row.replaceWith(newRow);
+                }
+                showToast(`Status atualizado para: ${newStatus}`);
+            } else {
+                showToast("Erro ao atualizar status.", "error");
+            }
+        } catch (error) {
+            showToast("Erro de comunicação com o servidor.", "error");
+        }
+    });
+
+    // -------------------------------------------------------------
+    // 1b. Filtros da página de Leads sem recarregar a página
+    // -------------------------------------------------------------
+    const leadsFilterForm = document.getElementById("leadsFilterForm");
+    const leadsTableBody = document.getElementById("leadsTableBody");
+    if (leadsFilterForm && leadsTableBody) {
+        let filterRequestId = 0;
+
+        const applyLeadsFilters = async () => {
+            const params = new URLSearchParams();
+            new FormData(leadsFilterForm).forEach((value, key) => {
+                if (String(value).trim() !== "") params.set(key, value);
+            });
+            const query = params.toString();
+            // Mantém os filtros na URL para que F5 preserve o resultado.
+            history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+
+            const requestId = ++filterRequestId;
+            leadsTableBody.style.opacity = "0.5";
             try {
-                const response = await fetch(`/api/leads/${leadId}/status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ status: newStatus })
+                const response = await fetch(`${leadsFilterForm.dataset.apiUrl}?${query}`, {
+                    headers: { "Accept": "application/json" }
                 });
                 const result = await response.json();
-                
+                // Ignora respostas antigas se o usuário trocou o filtro de novo.
+                if (requestId !== filterRequestId) return;
                 if (response.ok && result.ok) {
-                    showToast(`Status atualizado para: ${newStatus}`);
+                    leadsTableBody.innerHTML = result.html;
                 } else {
-                    showToast("Erro ao atualizar status.", "error");
+                    showToast("Erro ao filtrar leads.", "error");
                 }
             } catch (error) {
-                showToast("Erro de comunicação com o servidor.", "error");
+                if (requestId === filterRequestId) showToast("Erro de comunicação com o servidor.", "error");
+            } finally {
+                if (requestId === filterRequestId) leadsTableBody.style.opacity = "";
             }
+        };
+
+        leadsFilterForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            applyLeadsFilters();
         });
-    });
+        leadsFilterForm.addEventListener("change", applyLeadsFilters);
+
+        const clearButton = leadsFilterForm.querySelector("[data-clear-filters]");
+        if (clearButton) {
+            clearButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                leadsFilterForm.querySelectorAll("select").forEach(select => { select.value = ""; });
+                applyLeadsFilters();
+            });
+        }
+    }
 
     // -------------------------------------------------------------
     // 2. AI Analysis Modal Trigger & Flow
@@ -486,13 +548,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Handle delete lead alerts
-    const deleteForms = document.querySelectorAll(".delete-form");
-    deleteForms.forEach(form => {
-        form.addEventListener("submit", (e) => {
-            if (!confirm("Excluir este lead de forma permanente?")) {
-                e.preventDefault();
-            }
-        });
+    // Delegado: vale também para linhas inseridas via fetch.
+    document.addEventListener("submit", (e) => {
+        if (!e.target.closest(".delete-form")) return;
+        if (!confirm("Excluir este lead de forma permanente?")) {
+            e.preventDefault();
+        }
     });
 
     // -------------------------------------------------------------

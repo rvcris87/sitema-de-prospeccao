@@ -192,151 +192,184 @@ def logout():
     return redirect(url_for("landing"))
 
 
-def build_dashboard_context():
-    filters = {
-        "nicho": request.args.get("nicho", ""),
-        "cidade": request.args.get("cidade", ""),
-        "prioridade": request.args.get("prioridade", ""),
-        "status": request.args.get("status", ""),
-        "site_filter": request.args.get("site_filter", ""),
-        "tipo_site": request.args.get("tipo_site", ""),
-        "whatsapp_compat": request.args.get("whatsapp_compat", ""),
-        "instagram_encontrado": request.args.get("instagram_encontrado", ""),
-        "origem_lead": request.args.get("origem_lead", ""),
-        "data_referencia": request.args.get("data_referencia", ""),
+FILTER_KEYS = (
+    "nicho",
+    "cidade",
+    "prioridade",
+    "status",
+    "site_filter",
+    "tipo_site",
+    "whatsapp_compat",
+    "instagram_encontrado",
+    "origem_lead",
+    "data_referencia",
+)
+
+# Campos calculados que o front precisa; _laudo fica de fora da API (já vem em ia_real_resultado).
+API_LEAD_EXCLUDE = {"_laudo"}
+
+
+def get_filters():
+    return {key: request.args.get(key, "") for key in FILTER_KEYS}
+
+
+def has_active_filters(filters):
+    return any((value or "").strip() for value in filters.values())
+
+
+def processar_lead(row):
+    """Converte a linha do banco em dict e adiciona os campos derivados do laudo."""
+    lead = dict(row)
+    laudo = {}
+    if lead.get("ia_real_resultado"):
+        try:
+            laudo = json.loads(lead.get("ia_real_resultado") or "{}")
+        except Exception:
+            laudo = {}
+
+    lead["_laudo"] = laudo
+    lead["_status_geral"] = (
+        "Aprovado"
+        if laudo.get("lead_aprovado_abordagem") == "sim"
+        else "Descartado"
+        if laudo.get("lead_aprovado_abordagem") == "nao"
+        else "Com ressalvas"
+        if laudo.get("lead_aprovado_abordagem") == "com_ressalvas"
+        else "Não validado"
+    )
+    lead["_score"] = lead.get("ia_real_score") or laudo.get("score") or 0
+    lead["_confianca"] = laudo.get("confianca_verificacao") or 0
+    lead["_whatsapp_compat"] = laudo.get("compatibilidade_whatsapp") or "incerto"
+    lead["_site_tipo"] = laudo.get("tipo_site") or "incerto"
+    lead["_conclusao"] = (
+        laudo.get("diagnostico")
+        or lead.get("diagnostico")
+        or "Sem conclusão de laudo para este lead."
+    )
+    lead["_instagram_encontrado"] = laudo.get("instagram_encontrado") or "incerto"
+    return lead
+
+
+def passes_advanced_filters(lead, filters):
+    if filters["tipo_site"] and lead.get("_site_tipo") != filters["tipo_site"]:
+        return False
+    if filters["whatsapp_compat"] and lead.get("_whatsapp_compat") != filters["whatsapp_compat"]:
+        return False
+    if filters["instagram_encontrado"] and lead.get("_instagram_encontrado") != filters["instagram_encontrado"]:
+        return False
+    if filters["origem_lead"] and (lead.get("origem_lead") or "").strip() != filters["origem_lead"]:
+        return False
+    if filters["data_referencia"]:
+        created_at = str(lead.get("created_at") or "")
+        if not created_at.startswith(filters["data_referencia"]):
+            return False
+    return True
+
+
+def get_leads_filtrados(filters=None):
+    filters = filters if filters is not None else get_filters()
+    leads = [processar_lead(row) for row in list_leads(filters)]
+    return [lead for lead in leads if passes_advanced_filters(lead, filters)]
+
+
+def get_metrics(all_leads=None):
+    """Métricas de qualidade com uma única leitura dos leads.
+
+    Aceita leads já processados (por processar_lead) para evitar nova consulta.
+    """
+    if all_leads is None:
+        all_leads = [processar_lead(row) for row in list_leads()]
+
+    metrics = {
+        "leads_importados": len(all_leads),
+        "leads_validados": 0,
+        "leads_aprovados": 0,
+        "leads_descartados": 0,
+        "whatsapps_compativeis": 0,
+        "whatsapps_incerto_suspeitos": 0,
+        "sem_site": 0,
+        "oportunidades_altas": 0,
+        "mensagens_enviadas": 0,
+        "respostas_recebidas": 0,
+        "leads_com_ressalvas": 0,
+        "sites_terceirizados": 0,
     }
-    raw_leads = [dict(row) for row in list_leads(filters)]
-    leads = []
-
-    for lead in raw_leads:
-        laudo = {}
-        if lead.get("ia_real_resultado"):
-            try:
-                laudo = json.loads(lead.get("ia_real_resultado") or "{}")
-            except Exception:
-                laudo = {}
-
-        lead["_laudo"] = laudo
-        lead["_status_geral"] = (
-            "Aprovado"
-            if laudo.get("lead_aprovado_abordagem") == "sim"
-            else "Descartado"
-            if laudo.get("lead_aprovado_abordagem") == "nao"
-            else "Com ressalvas"
-            if laudo.get("lead_aprovado_abordagem") == "com_ressalvas"
-            else "Não validado"
-        )
-        lead["_score"] = lead.get("ia_real_score") or laudo.get("score") or 0
-        lead["_confianca"] = laudo.get("confianca_verificacao") or 0
-        lead["_whatsapp_compat"] = laudo.get("compatibilidade_whatsapp") or "incerto"
-        lead["_site_tipo"] = laudo.get("tipo_site") or "incerto"
-        lead["_conclusao"] = (
-            laudo.get("diagnostico")
-            or lead.get("diagnostico")
-            or "Sem conclusão de laudo para este lead."
-        )
-        lead["_instagram_encontrado"] = laudo.get("instagram_encontrado") or "incerto"
-        leads.append(lead)
-
-    def passes_advanced_filters(lead):
-        if filters["tipo_site"] and lead.get("_site_tipo") != filters["tipo_site"]:
-            return False
-        if filters["whatsapp_compat"] and lead.get("_whatsapp_compat") != filters["whatsapp_compat"]:
-            return False
-        if filters["instagram_encontrado"] and lead.get("_instagram_encontrado") != filters["instagram_encontrado"]:
-            return False
-        if filters["origem_lead"] and (lead.get("origem_lead") or "").strip() != filters["origem_lead"]:
-            return False
-        if filters["data_referencia"]:
-            created_at = str(lead.get("created_at") or "")
-            if not created_at.startswith(filters["data_referencia"]):
-                return False
-        return True
-
-    leads = [lead for lead in leads if passes_advanced_filters(lead)]
-
-    # Calculate metrics focused on lead quality verification
-    all_leads = [dict(row) for row in list_leads()]
-    leads_importados = len(all_leads)
-    leads_validados = sum(1 for l in all_leads if l.get("ia_real_resultado"))
-    whatsapps_compativeis = 0
-    whatsapps_incerto_suspeitos = 0
-    leads_descartados = 0
-    leads_com_ressalvas = 0
-    sites_terceirizados = 0
-    oportunidades_altas = 0
-    leads_aprovados = 0
-    mensagens_enviadas = sum(1 for l in all_leads if l.get("status") == "Mensagem enviada")
-    respostas_recebidas = sum(1 for l in all_leads if l.get("status") == "Respondeu")
-    empresas_sem_site = sum(1 for l in all_leads if l.get("qualidade_site") in ("Não tem site", "Só rede social"))
 
     for lead in all_leads:
-        raw = lead.get("ia_real_resultado")
-        if not raw:
+        if lead.get("status") == "Mensagem enviada":
+            metrics["mensagens_enviadas"] += 1
+        if lead.get("status") == "Respondeu":
+            metrics["respostas_recebidas"] += 1
+        if lead.get("qualidade_site") in ("Não tem site", "Só rede social"):
+            metrics["sem_site"] += 1
+        if not lead.get("ia_real_resultado"):
             continue
-        try:
-            data = json.loads(raw)
-        except Exception:
-            continue
+        metrics["leads_validados"] += 1
+
+        data = lead.get("_laudo") or {}
         if data.get("compatibilidade_whatsapp") == "compativel":
-            whatsapps_compativeis += 1
+            metrics["whatsapps_compativeis"] += 1
         if data.get("compatibilidade_whatsapp") in ("incerto", "divergente"):
-            whatsapps_incerto_suspeitos += 1
+            metrics["whatsapps_incerto_suspeitos"] += 1
         if data.get("lead_aprovado_abordagem") == "com_ressalvas":
-            leads_com_ressalvas += 1
+            metrics["leads_com_ressalvas"] += 1
         if data.get("lead_aprovado_abordagem") == "nao":
-            leads_descartados += 1
+            metrics["leads_descartados"] += 1
         if data.get("tipo_site") in ("site_terceirizado", "cardapio_plataforma_externa"):
-            sites_terceirizados += 1
+            metrics["sites_terceirizados"] += 1
         if data.get("lead_aprovado_abordagem") == "sim":
-            leads_aprovados += 1
+            metrics["leads_aprovados"] += 1
         if data.get("prioridade") == "alta":
-            oportunidades_altas += 1
-    
-    metrics = {
-        "leads_importados": leads_importados,
-        "leads_validados": leads_validados,
-        "leads_aprovados": leads_aprovados,
-        "leads_descartados": leads_descartados,
-        "whatsapps_compativeis": whatsapps_compativeis,
-        "whatsapps_incerto_suspeitos": whatsapps_incerto_suspeitos,
-        "sem_site": empresas_sem_site,
-        "oportunidades_altas": oportunidades_altas,
-        "mensagens_enviadas": mensagens_enviadas,
-        "respostas_recebidas": respostas_recebidas,
-        "leads_com_ressalvas": leads_com_ressalvas,
-        "sites_terceirizados": sites_terceirizados,
-    }
-    
-    filter_options = {
+            metrics["oportunidades_altas"] += 1
+
+    return metrics
+
+
+def get_filter_options():
+    with get_connection() as connection:
+        origens = [
+            row["origem"]
+            for row in connection.execute(
+                """
+                SELECT DISTINCT TRIM(origem_lead) AS origem FROM leads
+                WHERE TRIM(COALESCE(origem_lead, '')) != ''
+                ORDER BY origem
+                """
+            ).fetchall()
+        ]
+    return {
         "nichos": distinct_values("nicho"),
         "cidades": distinct_values("cidade"),
         "prioridades": distinct_values("prioridade"),
         "status": distinct_values("status"),
+        "origens": origens,
     }
-    filter_options["origens"] = sorted(
-        {
-            (lead.get("origem_lead") or "").strip()
-            for lead in all_leads
-            if (lead.get("origem_lead") or "").strip()
-        }
-    )
-    return {
-        "leads": leads,
-        "filters": filters,
-        "filter_options": filter_options,
-        "status_options": STATUS_OPTIONS,
-        "site_quality_options": SITE_QUALITY_OPTIONS,
-        "metrics": metrics,
-    }
+
+
+def lead_para_api(lead):
+    return {key: value for key, value in lead.items() if key not in API_LEAD_EXCLUDE}
 
 
 @app.route("/dashboard")
 @app.route("/app")
 @login_required
 def dashboard():
-    context = build_dashboard_context()
-    return render_template("index.html", active_page="dashboard", **context)
+    filters = get_filters()
+    all_leads = [processar_lead(row) for row in list_leads()]
+    if has_active_filters(filters):
+        leads = get_leads_filtrados(filters)
+    else:
+        # Sem filtro, a lista do dashboard é a mesma das métricas: reaproveita a leitura.
+        leads = all_leads
+    return render_template(
+        "index.html",
+        active_page="dashboard",
+        leads=leads,
+        filters=filters,
+        filter_options=get_filter_options(),
+        status_options=STATUS_OPTIONS,
+        metrics=get_metrics(all_leads),
+    )
 
 
 @app.route("/index")
@@ -375,43 +408,67 @@ def buscar_leads():
 @app.route("/leads")
 @login_required
 def leads_page():
-    context = build_dashboard_context()
-    return render_template("leads.html", active_page="leads", **context)
+    filters = get_filters()
+    return render_template(
+        "leads.html",
+        active_page="leads",
+        leads=get_leads_filtrados(filters),
+        filters=filters,
+        filter_options=get_filter_options(),
+        status_options=STATUS_OPTIONS,
+    )
+
+
+@app.route("/api/leads", methods=["GET"])
+@login_required
+def api_list_leads():
+    leads = get_leads_filtrados(get_filters())
+    return jsonify(
+        {
+            "ok": True,
+            "total": len(leads),
+            "leads": [lead_para_api(lead) for lead in leads],
+            # Linhas já renderizadas pelo mesmo partial do leads.html (evita duplicar markup no JS).
+            "html": render_template(
+                "partials/lead_rows.html", leads=leads, status_options=STATUS_OPTIONS
+            ),
+        }
+    )
 
 
 @app.route("/laudos")
 @login_required
 def laudos_page():
-    context = build_dashboard_context()
-    return render_template("laudos.html", active_page="laudos", **context)
+    return render_template(
+        "laudos.html",
+        active_page="laudos",
+        leads=get_leads_filtrados(),
+        filter_options=get_filter_options(),
+    )
 
 
 @app.route("/mensagens")
 @login_required
 def mensagens_page():
-    context = build_dashboard_context()
-    return render_template("mensagens.html", active_page="mensagens", **context)
+    return render_template("mensagens.html", active_page="mensagens", leads=get_leads_filtrados())
 
 
 @app.route("/oportunidades")
 @login_required
 def oportunidades_page():
-    context = build_dashboard_context()
-    return render_template("oportunidades.html", active_page="oportunidades", **context)
+    return render_template("oportunidades.html", active_page="oportunidades", leads=get_leads_filtrados())
 
 
 @app.route("/insights")
 @login_required
 def insights_page():
-    context = build_dashboard_context()
-    return render_template("insights.html", active_page="insights", **context)
+    return render_template("insights.html", active_page="insights", leads=get_leads_filtrados())
 
 
 @app.route("/configuracoes")
 @login_required
 def configuracoes_page():
-    context = build_dashboard_context()
-    return render_template("configuracoes.html", active_page="configuracoes", **context)
+    return render_template("configuracoes.html", active_page="configuracoes")
 
 
 @app.route("/importar-apify", methods=["GET", "POST"])
@@ -606,8 +663,19 @@ def api_update_status(lead_id):
             "UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (new_status, lead_id)
         )
-        
-    return jsonify({"ok": True, "message": "Status atualizado com sucesso.", "status": new_status})
+
+    # Devolve a linha atualizada para o front trocar só ela na tabela.
+    row = get_lead(lead_id)
+    if row is None:
+        return jsonify({"ok": False, "message": "Lead não encontrado."}), 404
+    lead = processar_lead(row)
+    return jsonify({
+        "ok": True,
+        "message": "Status atualizado com sucesso.",
+        "status": new_status,
+        "lead": lead_para_api(lead),
+        "html": render_template("partials/lead_rows.html", leads=[lead], status_options=STATUS_OPTIONS),
+    })
 
 
 @app.route("/api/leads/<int:lead_id>/pesquisar-ia-real", methods=["POST"])
