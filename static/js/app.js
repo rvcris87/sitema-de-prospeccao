@@ -2,386 +2,725 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------------------
     // 1. CRM Dynamic Status Updates
     // -------------------------------------------------------------
-    const statusSelects = document.querySelectorAll(".crm-status-select");
-    statusSelects.forEach(select => {
-        select.addEventListener("change", async (event) => {
-            const leadId = select.dataset.leadId;
-            const newStatus = select.value;
-            
+    // Delegado no document: vale para a tabela, o painel lateral e linhas inseridas via fetch.
+    document.addEventListener("change", async (event) => {
+        const select = event.target.closest(".crm-status-select");
+        if (!select) return;
+        const leadId = select.dataset.leadId;
+        const newStatus = select.value;
+        const savedOption = [...select.options].find(option => option.defaultSelected);
+        const oldStatus = savedOption ? savedOption.value : null;
+
+        select.disabled = true;
+        try {
+            const response = await fetch(`/api/leads/${leadId}/status`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const result = await response.json();
+
+            if (response.ok && result.ok) {
+                // Troca só a linha deste lead e sincroniza o outro select (tabela <-> painel).
+                if (result.html) replaceLeadRow(leadId, result.html);
+                document.querySelectorAll(`.crm-status-select[data-lead-id="${leadId}"]`).forEach(other => {
+                    [...other.options].forEach(option => {
+                        option.defaultSelected = option.value === newStatus;
+                    });
+                    other.value = newStatus;
+                });
+                if (leadsPage) leadsPage.onStatusChanged(oldStatus, newStatus);
+                showToast(`Status atualizado para: ${newStatus}`);
+            } else {
+                if (oldStatus !== null) select.value = oldStatus;
+                showToast("Erro ao atualizar status.", "error");
+            }
+        } catch (error) {
+            if (oldStatus !== null) select.value = oldStatus;
+            showToast("Erro de comunicação com o servidor.", "error");
+        } finally {
+            select.disabled = false;
+        }
+    });
+
+    // Um lead pode aparecer em mais de uma tabela na mesma página (ex.: Dashboard).
+    function findLeadRows(leadId) {
+        return [...document.querySelectorAll(`.lv-table tr.lead-row[data-lead-id="${leadId}"]`)];
+    }
+
+    function findLeadRow(leadId) {
+        return findLeadRows(leadId)[0] || null;
+    }
+
+    function replaceLeadRow(leadId, html) {
+        const template = document.createElement("template");
+        template.innerHTML = html.trim();
+        const source = template.content.querySelector("tr.lead-row");
+        if (!source) return;
+        findLeadRows(leadId).forEach(row => {
+            const newRow = source.cloneNode(true);
+            if (row.classList.contains("is-sel")) newRow.classList.add("is-sel");
+            row.replaceWith(newRow);
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 1b. Tabelas de leads: painel lateral (qualquer página com #leadDrawer)
+    //     e, na tela de Leads, filtros sem recarregar e chips de status
+    // -------------------------------------------------------------
+    const leadsPage = setupLeadsPage();
+
+    function setupLeadsPage() {
+        const drawer = document.getElementById("leadDrawer");
+        if (!drawer) return null;
+        const form = document.getElementById("leadsFilterForm");
+        const tableBody = document.getElementById("leadsTableBody");
+
+        const statusSelect = form?.querySelector('select[name="status"]');
+        const searchInput = form?.querySelector('input[name="q"]');
+        const chipsContainer = document.getElementById("leadsStatusChips");
+        const statusOrder = statusSelect ? [...statusSelect.options].map(option => option.value).filter(Boolean) : [];
+        let counts = {};
+        try {
+            counts = JSON.parse(document.getElementById("leadsInitialCounts")?.textContent || "{}");
+        } catch (error) {
+            counts = {};
+        }
+
+        // ---------- Filtros (só na tela de Leads) ----------
+        if (form && tableBody) setupFilters();
+
+        function setupFilters() {
+            let filterRequestId = 0;
+            let searchTimer = null;
+
+            const applyFilters = async () => {
+                const params = new URLSearchParams();
+                new FormData(form).forEach((value, key) => {
+                    if (String(value).trim() !== "") params.set(key, String(value).trim());
+                });
+                const query = params.toString();
+                // Mantém os filtros na URL para que F5 preserve o resultado.
+                history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+                renderChips();
+
+                const requestId = ++filterRequestId;
+                tableBody.classList.add("is-loading");
+                try {
+                    const response = await fetch(`${form.dataset.apiUrl}?${query}`, {
+                        headers: { "Accept": "application/json" }
+                    });
+                    const result = await response.json();
+                    // Ignora respostas antigas se o usuário trocou o filtro de novo.
+                    if (requestId !== filterRequestId) return;
+                    if (response.ok && result.ok) {
+                        tableBody.innerHTML = result.html;
+                        counts = result.contagens || counts;
+                        renderChips();
+                        markActiveRow();
+                    } else {
+                        showToast("Erro ao filtrar leads.", "error");
+                    }
+                } catch (error) {
+                    if (requestId === filterRequestId) showToast("Erro de comunicação com o servidor.", "error");
+                } finally {
+                    if (requestId === filterRequestId) tableBody.classList.remove("is-loading");
+                }
+            };
+
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                applyFilters();
+            });
+            form.addEventListener("change", (event) => {
+                if (event.target === searchInput) return; // a busca já filtra pelo "input"
+                applyFilters();
+            });
+            searchInput?.addEventListener("input", () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyFilters, 300);
+            });
+
+            form.querySelector("[data-clear-filters]")?.addEventListener("click", (event) => {
+                event.preventDefault();
+                form.querySelectorAll("select").forEach(select => { select.value = ""; });
+                if (searchInput) searchInput.value = "";
+                applyFilters();
+            });
+
+            chipsContainer?.addEventListener("click", (event) => {
+                const chip = event.target.closest(".lv-chip");
+                if (!chip) return;
+                statusSelect.value = chip.dataset.status === statusSelect.value ? "" : chip.dataset.status;
+                applyFilters();
+            });
+        }
+
+        // ---------- Chips de contagem por status ----------
+        function renderChips() {
+            if (!chipsContainer || !statusSelect) return;
+            const active = statusSelect.value;
+            const chips = [{ status: "", label: "Todos", count: counts._total ?? 0 }];
+            statusOrder.forEach(status => {
+                const count = counts[status] || 0;
+                if (count > 0 || status === active) chips.push({ status, label: status, count });
+            });
+            chipsContainer.innerHTML = chips.map(chip => `
+                <button type="button" class="lv-chip${chip.status === active ? " is-active" : ""}"
+                    data-status="${escapeAttribute(chip.status)}" aria-pressed="${chip.status === active}">
+                    <span>${escapeHtml(chip.label)}</span><b>${chip.count}</b>
+                </button>`).join("");
+        }
+
+        renderChips();
+
+        // ---------- Painel lateral (drawer) ----------
+        const backdrop = document.getElementById("leadDrawerBackdrop");
+        const drawerContent = document.getElementById("leadDrawerContent");
+        const closeButton = document.getElementById("leadDrawerClose");
+        const skeletonTemplate = document.getElementById("leadDrawerSkeleton");
+        const validating = new Set();
+        let currentLeadId = null;
+        let lastFocus = null;
+
+        function showSkeleton(message) {
+            drawerContent.innerHTML = "";
+            drawerContent.appendChild(skeletonTemplate.content.cloneNode(true));
+            const msg = drawerContent.querySelector("[data-skeleton-msg]");
+            if (msg) msg.textContent = message;
+        }
+
+        function markActiveRow() {
+            document.querySelectorAll(".lv-table tr.lead-row.is-sel").forEach(row => row.classList.remove("is-sel"));
+            if (currentLeadId) findLeadRows(currentLeadId).forEach(row => row.classList.add("is-sel"));
+        }
+
+        async function fetchLead(leadId) {
+            const response = await fetch(`/api/leads/${leadId}`, { headers: { "Accept": "application/json" } });
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.message || "Lead não encontrado.");
+            return result;
+        }
+
+        // Busca o lead e atualiza só a linha dele e, se estiver aberto, o painel.
+        async function refreshLead(leadId) {
+            const row = findLeadRow(leadId);
+            const oldStatus = row ? row.dataset.status : null;
+            const result = await fetchLead(leadId);
+            replaceLeadRow(leadId, result.row_html);
+            if (oldStatus !== null && oldStatus !== result.lead.status) {
+                onStatusChanged(oldStatus, result.lead.status);
+            }
+            if (String(currentLeadId) === String(leadId) && !validating.has(String(leadId))) {
+                drawerContent.innerHTML = result.drawer_html;
+            }
+            return result;
+        }
+
+        async function openDrawer(leadId, options = {}) {
+            leadId = String(leadId);
+            if (currentLeadId === null) lastFocus = document.activeElement;
+            currentLeadId = leadId;
+            drawer.classList.add("is-open");
+            drawer.setAttribute("aria-hidden", "false");
+            backdrop.hidden = false;
+            document.body.classList.add("lv-drawer-open");
+            markActiveRow();
+            closeButton.focus({ preventScroll: true });
+
+            if (validating.has(leadId)) {
+                showSkeleton("Gerando o laudo… isso pode levar até 1 minuto.");
+                return;
+            }
+            showSkeleton("Carregando lead…");
             try {
-                const response = await fetch(`/api/leads/${leadId}/status`, {
+                await refreshLead(leadId);
+                if (options.validate) runValidation(leadId, false);
+            } catch (error) {
+                if (currentLeadId === leadId) {
+                    drawerContent.innerHTML = `<p class="lv-muted lv-drawer-error">${escapeHtml(error.message || "Não foi possível carregar o lead.")}</p>`;
+                }
+            }
+        }
+
+        function closeDrawer() {
+            if (currentLeadId === null) return;
+            currentLeadId = null;
+            drawer.classList.remove("is-open");
+            drawer.setAttribute("aria-hidden", "true");
+            backdrop.hidden = true;
+            document.body.classList.remove("lv-drawer-open");
+            markActiveRow();
+            if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+            lastFocus = null;
+        }
+
+        // Roda a análise de IA (endpoint existente) com skeleton no painel e na linha.
+        async function runValidation(leadId, reanalisar) {
+            leadId = String(leadId);
+            if (validating.has(leadId)) return;
+            validating.add(leadId);
+            findLeadRows(leadId).forEach(row => row.classList.add("is-validating"));
+            if (currentLeadId === leadId) {
+                showSkeleton("Gerando o laudo… isso pode levar até 1 minuto.");
+            }
+
+            let message = null;
+            let tone = "success";
+            try {
+                const response = await fetch(`/api/leads/${leadId}/pesquisar-ia-real`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ status: newStatus })
+                    body: JSON.stringify({ reanalisar: Boolean(reanalisar) })
                 });
                 const result = await response.json();
-                
                 if (response.ok && result.ok) {
-                    showToast(`Status atualizado para: ${newStatus}`);
+                    message = "Laudo atualizado.";
                 } else {
-                    showToast("Erro ao atualizar status.", "error");
+                    message = result.message || "Não foi possível gerar o laudo.";
+                    tone = "error";
                 }
             } catch (error) {
-                showToast("Erro de comunicação com o servidor.", "error");
+                message = "Não foi possível gerar o laudo agora. Verifique a conexão e tente de novo.";
+                tone = "error";
+            } finally {
+                validating.delete(leadId);
             }
-        });
-    });
-
-    // -------------------------------------------------------------
-    // 2. AI Analysis Modal Trigger & Flow
-    // -------------------------------------------------------------
-    const aiModal = document.getElementById("aiModal");
-    const closeAiModalBtn = document.getElementById("closeAiModal");
-    const aiLoading = document.getElementById("aiLoading");
-    const aiResults = document.getElementById("aiResults");
-    
-    // Modal fields
-    const aiLeadName = document.getElementById("aiLeadName");
-    const aiPotentialBadge = document.getElementById("aiPotentialBadge");
-    const aiReasonText = document.getElementById("aiReasonText");
-    const aiMessageText = document.getElementById("aiMessageText");
-    const copyAiMessageBtn = document.getElementById("copyAiMessage");
-    const sendAiWhatsappBtn = document.getElementById("sendAiWhatsapp");
-
-    // Click handler for AI Buttons
-    document.addEventListener("click", async (event) => {
-        const aiButton = event.target.closest(".run-ai-btn");
-        if (!aiButton) return;
-
-        const card = aiButton.closest(".lead-card");
-        if (!card) return;
-
-        const leadId = card.dataset.leadId;
-        const nome = card.dataset.nome;
-        const nicho = card.dataset.nicho;
-        const cidade = card.dataset.cidade;
-        const siteQualidade = card.dataset.siteQualidade;
-        const aiAnalisado = card.dataset.aiAnalisado;
-
-        // Open modal
-        aiModal.classList.remove("hidden");
-        aiLeadName.textContent = nome;
-
-        if (aiAnalisado === "1") {
-            // Already analyzed: show results immediately
-            showAiResults({
-                potencial: card.dataset.aiPotencial,
-                motivo: card.dataset.aiMotivo,
-                sugestao: card.dataset.aiSugestao,
-                whatsapp: card.querySelector(".whatsapp-btn")?.getAttribute("href") || ""
-            });
-        } else {
-            // Not analyzed: show loading animation and call API
-            showAiLoading();
-            
-            // Animate loading steps
-            const steps = aiLoading.querySelectorAll(".step");
-            steps.forEach(s => s.classList.remove("active"));
-            
-            let stepIndex = 0;
-            steps[0].classList.add("active");
-            
-            const stepInterval = setInterval(() => {
-                stepIndex++;
-                if (stepIndex < steps.length) {
-                    steps[stepIndex].classList.add("active");
-                }
-            }, 400);
 
             try {
-                const startTime = Date.now();
-                const response = await fetch(`/api/leads/${leadId}/analisar`, {
-                    method: "POST"
-                });
-                const result = await response.json();
-                
-                // Enforce minimum animation time (1.5s) for a premium feel
-                const duration = Date.now() - startTime;
-                const delay = Math.max(0, 1500 - duration);
-                
-                setTimeout(() => {
-                    clearInterval(stepInterval);
-                    if (response.ok && result.ok) {
-                        // Update card dataset
-                        card.dataset.aiAnalisado = "1";
-                        card.dataset.aiPotencial = result.ai_potencial;
-                        card.dataset.aiMotivo = result.ai_motivo;
-                        card.dataset.ai_sugestao = result.ai_sugestao;
-                        card.dataset.aiSugestao = result.ai_sugestao;
-
-                        // Update card UI
-                        updateCardUiAfterAnalysis(card, result);
-
-                        // Show results
-                        showAiResults({
-                            potencial: result.ai_potencial,
-                            motivo: result.ai_motivo,
-                            sugestao: result.ai_sugestao,
-                            whatsapp: card.querySelector(".whatsapp-btn")?.getAttribute("href") || ""
-                        });
-                    } else {
-                        showToast("Erro ao processar análise da IA.", "error");
-                        aiModal.classList.add("hidden");
-                    }
-                }, delay);
-
+                await refreshLead(leadId);
             } catch (error) {
-                clearInterval(stepInterval);
-                showToast("Falha de conexão com a IA.", "error");
-                aiModal.classList.add("hidden");
+                findLeadRows(leadId).forEach(row => row.classList.remove("is-validating"));
             }
+            showToast(message, tone);
         }
-    });
 
-    // Close Modal Event
-    if (closeAiModalBtn) {
-        closeAiModalBtn.addEventListener("click", () => {
-            aiModal.classList.add("hidden");
-        });
-    }
-
-    window.addEventListener("click", (event) => {
-        if (event.target === aiModal) {
-            aiModal.classList.add("hidden");
+        function onStatusChanged(oldStatus, newStatus) {
+            if (oldStatus === newStatus) return;
+            if (oldStatus && counts[oldStatus] > 0) counts[oldStatus] -= 1;
+            if (newStatus) counts[newStatus] = (counts[newStatus] || 0) + 1;
+            renderChips();
         }
-    });
 
-    // Copy AI Message
-    if (copyAiMessageBtn) {
-        copyAiMessageBtn.addEventListener("click", async () => {
-            const originalText = copyAiMessageBtn.textContent;
-            try {
-                await navigator.clipboard.writeText(aiMessageText.value || "");
-                copyAiMessageBtn.textContent = "📋 Copiado!";
-                setTimeout(() => {
-                    copyAiMessageBtn.textContent = originalText;
-                }, 1600);
-            } catch (error) {
-                copyAiMessageBtn.textContent = "Erro ao copiar";
-                setTimeout(() => {
-                    copyAiMessageBtn.textContent = originalText;
-                }, 1600);
+        document.addEventListener("click", (event) => {
+            const validateRowButton = event.target.closest(".lv-table .js-validate-lead");
+            if (validateRowButton) {
+                openDrawer(validateRowButton.closest("tr.lead-row").dataset.leadId, { validate: true });
+                return;
+            }
+            const openButton = event.target.closest(".lv-table .js-open-lead");
+            if (openButton) {
+                openDrawer(openButton.closest("tr.lead-row").dataset.leadId);
+                return;
+            }
+            const drawerValidate = event.target.closest("#leadDrawer .js-drawer-validate");
+            if (drawerValidate && currentLeadId) {
+                const inner = drawerContent.querySelector(".lv-drawer-inner");
+                runValidation(currentLeadId, inner?.dataset.validado === "1");
+                return;
+            }
+            if (event.target.closest("#leadDrawerClose") || event.target === backdrop) {
+                closeDrawer();
+                return;
+            }
+            // Linha inteira clicável, exceto controles dentro dela.
+            const row = event.target.closest(".lv-table tr.lead-row");
+            if (row && !event.target.closest("a, button, select, input, label, form")) {
+                openDrawer(row.dataset.leadId);
             }
         });
-    }
 
-    function showAiLoading() {
-        aiLoading.classList.remove("hidden");
-        aiResults.classList.add("hidden");
-    }
-
-    function showAiResults(data) {
-        aiLoading.classList.add("hidden");
-        aiResults.classList.remove("hidden");
-
-        // Format Potential Badge
-        aiPotentialBadge.textContent = `Potencial ${data.potencial}`;
-        aiPotentialBadge.className = `potential-badge ${priorityClass(data.potencial)}`;
-
-        // Set reason and suggestion
-        aiReasonText.textContent = data.motivo;
-        aiMessageText.value = data.sugestao;
-
-        // Configure Whatsapp Link
-        if (sendAiWhatsappBtn) {
-            // Update Whatsapp link destination with new text
-            let phoneLink = data.whatsapp.split("?")[0] || "";
-            if (phoneLink) {
-                sendAiWhatsappBtn.setAttribute("href", `${phoneLink}?text=${encodeURIComponent(data.sugestao)}`);
-                sendAiWhatsappBtn.style.display = "inline-flex";
-            } else {
-                sendAiWhatsappBtn.style.display = "none";
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && currentLeadId !== null) {
+                closeDrawer();
+                return;
             }
-        }
-    }
+            const row = event.target.closest?.(".lv-table tr.lead-row");
+            if (row && event.target === row && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                openDrawer(row.dataset.leadId);
+            }
+        });
 
-    function updateCardUiAfterAnalysis(card, result) {
-        // Change "Analisar com IA" button text
-        const aiBtn = card.querySelector(".run-ai-btn");
-        if (aiBtn) {
-            aiBtn.textContent = "🪄 Ver Análise IA";
-        }
+        const leadFromUrl = new URLSearchParams(location.search).get("lead");
+        if (leadFromUrl && /^\d+$/.test(leadFromUrl)) openDrawer(leadFromUrl);
 
-        // Set AI Analyzed Badge in header if not already present
-        const badgesContainer = card.querySelector(".card-badges");
-        if (badgesContainer && !card.querySelector(".ai-badge-card")) {
-            const aiBadge = document.createElement("span");
-            aiBadge.className = "ai-badge-card";
-            aiBadge.textContent = "🤖 IA Analisou";
-            badgesContainer.insertBefore(aiBadge, badgesContainer.firstChild);
-        }
-
-        // Change Potential Badge Class
-        const potentialTag = card.querySelector(".potential-tag");
-        if (potentialTag) {
-            potentialTag.textContent = `Potencial ${result.ai_potencial}`;
-            potentialTag.className = `potential-tag ${priorityClass(result.ai_potencial)}`;
-        }
-
-        // Update status select dropdown
-        const statusSelect = card.querySelector(".crm-status-select");
-        if (statusSelect) {
-            statusSelect.value = "Analisado";
-        }
-
-        // Replace old static diagnosis text with dynamic AI preview
-        const diagnosisParagraph = card.querySelector(".diagnosis");
-        let aiPreview = card.querySelector(".ai-preview-box");
-        
-        if (diagnosisParagraph) {
-            diagnosisParagraph.remove();
-        }
-        
-        if (!aiPreview) {
-            aiPreview = document.createElement("div");
-            aiPreview.className = "ai-preview-box";
-            card.insertBefore(aiPreview, card.querySelector(".card-actions"));
-        }
-        
-        const truncatedMotivo = result.ai_motivo.length > 140 ? result.ai_motivo.slice(0, 137) + "..." : result.ai_motivo;
-        aiPreview.innerHTML = `
-            <span class="ai-box-title">🤖 Insight da Inteligência Artificial:</span>
-            <p class="ai-box-motivo">${truncatedMotivo}</p>
-        `;
-
-        // Update WhatsApp action button href with the new message
-        const whatsappBtn = card.querySelector(".whatsapp-btn");
-        if (whatsappBtn) {
-            const originalHref = whatsappBtn.getAttribute("href");
-            const phone = originalHref.split("?")[0] || "";
-            whatsappBtn.setAttribute("href", `${phone}?text=${encodeURIComponent(result.ai_sugestao)}`);
-        }
+        return { onStatusChanged };
     }
 
     // -------------------------------------------------------------
-    // 3. Google Places API Search Results Flow
+    // 2. Capturar leads: busca, seleção e inclusão na lista de leads
     // -------------------------------------------------------------
-    const googlePlacesForm = document.getElementById("googlePlacesForm");
-    const placesResults = document.getElementById("placesResults");
-    const placesStatus = document.getElementById("placesStatus");
-    const resultsToolbar = document.getElementById("resultsToolbar");
-    const resultsCount = document.getElementById("resultsCount");
-    const resultsMessage = document.getElementById("resultsMessage");
-    const saveAllButton = document.getElementById("saveAllLeads");
-    let foundLeads = [];
+    setupCapture();
 
-    if (googlePlacesForm) {
-        googlePlacesForm.addEventListener("submit", async (event) => {
+    function setupCapture() {
+        const form = document.getElementById("captureForm");
+        if (!form) return;
+        const submit = document.getElementById("captureSubmit");
+        const status = document.getElementById("captureStatus");
+        const results = document.getElementById("captureResults");
+        const empty = document.getElementById("captureEmpty");
+        const body = document.getElementById("captureBody");
+        const checkAll = document.getElementById("captureAll");
+        const addButton = document.getElementById("captureAdd");
+        const countLabel = document.getElementById("captureCount");
+        const selectedLabel = document.getElementById("captureSelected");
+        let found = [];
+
+        function setStatus(message, type) {
+            status.textContent = message;
+            status.className = `notice ${type || "info"}`;
+        }
+
+        function clearStatus() {
+            status.className = "notice hidden";
+            status.textContent = "";
+        }
+
+        function selectable() {
+            return [...body.querySelectorAll('input[type="checkbox"]:not(:disabled)')];
+        }
+
+        function updateSelection() {
+            const boxes = selectable();
+            const checked = boxes.filter(box => box.checked).length;
+            selectedLabel.textContent = checked === 0
+                ? "Nenhuma empresa selecionada"
+                : checked === 1 ? "1 empresa selecionada" : `${checked} empresas selecionadas`;
+            addButton.disabled = checked === 0;
+            checkAll.checked = boxes.length > 0 && checked === boxes.length;
+            checkAll.indeterminate = checked > 0 && checked < boxes.length;
+            checkAll.disabled = boxes.length === 0;
+        }
+
+        function rating(lead) {
+            if (!lead.avaliacao) return "—";
+            const total = lead.qtd_avaliacoes ?? 0;
+            return `${escapeHtml(String(lead.avaliacao))} (${escapeHtml(String(total))})`;
+        }
+
+        function render(message) {
+            body.innerHTML = found.map((lead, index) => `
+                <tr data-index="${index}">
+                    <td class="col-check">
+                        <label class="check"><input type="checkbox" data-index="${index}"><span class="sr-only">Selecionar ${escapeHtml(lead.nome_empresa)}</span></label>
+                    </td>
+                    <td><span class="lead-name">${escapeHtml(lead.nome_empresa)}</span><span class="lead-sub">${escapeHtml(lead.endereco || "Endereço não informado")}</span></td>
+                    <td>${escapeHtml(lead.telefone_whatsapp || "—")}</td>
+                    <td>${/^https?:\/\//i.test(lead.site || "")
+                        ? `<a href="${escapeAttribute(lead.site)}" target="_blank" rel="noopener noreferrer">Abrir site</a>`
+                        : '<span class="badge bad">Sem site</span>'}</td>
+                    <td class="num">${rating(lead)}</td>
+                </tr>`).join("");
+            countLabel.textContent = found.length === 1 ? "1 empresa encontrada" : `${found.length} empresas encontradas`;
+            results.hidden = false;
+            empty.hidden = true;
+            if (message) setStatus(message, "info"); else clearStatus();
+            updateSelection();
+        }
+
+        form.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const formData = new FormData(googlePlacesForm);
-            const payload = Object.fromEntries(formData.entries());
+            const data = Object.fromEntries(new FormData(form).entries());
+            const cidade = String(data.cidade || "").trim();
+            const estado = String(data.estado || "").trim().toUpperCase();
+            // O estado entra na busca para evitar cidades com o mesmo nome.
+            const payload = { nicho: String(data.nicho || "").trim(), cidade: estado ? `${cidade}, ${estado}` : cidade, limite: data.limite };
 
-            setPlacesStatus("🔍 Buscando empresas reais no Google Places...", "info");
-            placesResults.innerHTML = "";
-            resultsToolbar.classList.add("hidden");
+            submit.disabled = true;
+            submit.textContent = "Buscando…";
+            setStatus("Buscando empresas. Isso pode levar alguns segundos.", "info");
+            results.hidden = true;
 
             try {
-                const response = await fetch("/api/google-places/buscar", {
+                const response = await fetch("/api/apify/buscar", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 });
-                const data = await response.json();
-
-                if (!response.ok || !data.ok) {
-                    foundLeads = [];
-                    setPlacesStatus(data.message || "Não foi possível concluir a busca.", "error");
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    found = [];
+                    empty.hidden = false;
+                    setStatus(response.status === 400 && !result.leads?.length && /token|\.env/i.test(result.message || "")
+                        ? "A fonte de busca não está configurada. Veja em Configurações."
+                        : (result.message || "Não foi possível concluir a busca."), "error");
                     return;
                 }
-
-                foundLeads = data.leads || [];
-                renderPlacesResults(foundLeads, data.message);
+                // A cidade e o estado ficam gravados separados no lead.
+                found = (result.leads || []).map(lead => ({ ...lead, cidade, estado }));
+                if (!found.length) {
+                    empty.hidden = false;
+                    setStatus(result.message || "Nenhuma empresa encontrada para essa busca.", "info");
+                    return;
+                }
+                render("");
             } catch (error) {
-                foundLeads = [];
-                setPlacesStatus("Erro inesperado ao buscar leads. Verifique a conexão e tente novamente.", "error");
+                found = [];
+                empty.hidden = false;
+                setStatus("Erro ao buscar empresas. Verifique a conexão e tente novamente.", "error");
+            } finally {
+                submit.disabled = false;
+                submit.textContent = "Buscar empresas";
             }
         });
-    }
 
-    if (saveAllButton) {
-        saveAllButton.addEventListener("click", async () => {
-            if (!foundLeads.length) return;
-            
-            saveAllButton.disabled = true;
-            saveAllButton.textContent = "Salvando...";
-            const result = await postJson("/api/google-places/salvar-todos", { leads: foundLeads });
-            
-            setPlacesStatus(result.message || "Leads processados.", result.ok ? "success" : "error");
-            saveAllButton.textContent = "💾 Importar Todos no CRM";
-            saveAllButton.disabled = false;
+        checkAll.addEventListener("change", () => {
+            selectable().forEach(box => { box.checked = checkAll.checked; });
+            updateSelection();
+        });
+
+        body.addEventListener("change", (event) => {
+            if (event.target.matches('input[type="checkbox"]')) updateSelection();
+        });
+
+        addButton.addEventListener("click", async () => {
+            const boxes = selectable().filter(box => box.checked);
+            if (!boxes.length) return;
+            const leads = boxes.map(box => found[Number(box.dataset.index)]).filter(Boolean);
+
+            addButton.disabled = true;
+            addButton.textContent = "Adicionando…";
+            const result = await postJson("/api/apify/salvar-todos", { leads });
+            addButton.textContent = "Adicionar selecionados aos leads";
+
+            if (!result.ok) {
+                setStatus(result.message || "Não foi possível adicionar os leads.", "error");
+                updateSelection();
+                return;
+            }
+            boxes.forEach(box => {
+                box.checked = false;
+                box.disabled = true;
+                box.closest("tr").classList.add("is-saved");
+            });
+            const saved = result.saved ?? leads.length;
+            const duplicated = result.duplicated ?? 0;
+            let message = saved === 1 ? "1 lead adicionado." : `${saved} leads adicionados.`;
+            if (duplicated) message += duplicated === 1 ? " 1 já estava na lista." : ` ${duplicated} já estavam na lista.`;
+            setStatus(message, "success");
+            updateSelection();
         });
     }
 
-    function renderPlacesResults(leads, message) {
-        placesResults.innerHTML = "";
+    // -------------------------------------------------------------
+    // 3. Mensagens: editor de abordagem a partir dos fatos do laudo
+    // -------------------------------------------------------------
+    setupMessages();
 
-        if (!leads.length) {
-            setPlacesStatus(message || "Nenhum lead encontrado para essa busca.", "info");
-            return;
+    function setupMessages() {
+        const app = document.getElementById("msgApp");
+        if (!app) return;
+        let items = [];
+        try {
+            items = JSON.parse(document.getElementById("msgData")?.textContent || "[]");
+        } catch (error) {
+            items = [];
+        }
+        if (!items.length) return;
+
+        const nome = document.getElementById("msgNome");
+        const meta = document.getElementById("msgMeta");
+        const fatos = document.getElementById("msgFatos");
+        const texto = document.getElementById("msgTexto");
+        const copiar = document.getElementById("msgCopiar");
+        const whats = document.getElementById("msgWhats");
+        const enviada = document.getElementById("msgEnviada");
+        const SENT = "Mensagem enviada";
+        let current = null;
+
+        // Cada frase só entra se o fato correspondente estiver no laudo.
+        const FRASES = {
+            sem_site: "vi que vocês ainda não têm um site próprio",
+            site_terceirizado: "vi que o site de vocês fica em uma plataforma de terceiros",
+            bio_agregador: "notei que o link da bio do Instagram leva para um agregador de links",
+            bio_whatsapp: "notei que o link da bio do Instagram leva direto para o WhatsApp",
+        };
+
+        function observation(item) {
+            const frases = item.fatos.map(fato => FRASES[fato.chave]).filter(Boolean);
+            if (!frases.length) return "";
+            return frases.length === 1 ? frases[0] : `${frases[0]} e ${frases[1]}`;
         }
 
-        hidePlacesStatus();
-        resultsToolbar.classList.remove("hidden");
-        resultsCount.textContent = `${leads.length} lead(s) encontrado(s)`;
-        resultsMessage.textContent = message || "";
+        function buildMessage(item, tom) {
+            const empresa = item.nome || "sua empresa";
+            const obs = observation(item);
+            const upper = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+            if (tom === "consultivo") {
+                return [
+                    `Olá! Tudo bem? Estive olhando a presença digital de ${empresa}.`,
+                    obs ? `${upper(obs)}.` : "",
+                    "Trabalho com criação de sites para negócios locais e posso mostrar, sem compromisso, como isso ficaria para vocês.",
+                    "Faz sentido conversarmos?",
+                ].filter(Boolean).join(" ");
+            }
+            if (tom === "descontraido") {
+                return [
+                    `Oi, pessoal de ${empresa}! Tudo certo?`,
+                    obs ? `Dei uma olhada em vocês na internet e ${obs}.` : "Dei uma olhada em vocês na internet.",
+                    "Eu faço sites para negócios locais e pensei em uma ideia para vocês. Posso mandar por aqui?",
+                ].join(" ");
+            }
+            return [
+                `Olá! Este é o contato de ${empresa}?`,
+                obs ? `${upper(obs)}.` : "",
+                "Eu crio sites para negócios locais. Posso enviar uma proposta rápida?",
+            ].filter(Boolean).join(" ");
+        }
 
-        leads.forEach((lead, index) => {
-            const card = document.createElement("article");
-            card.className = `lead-card potential-${priorityClass(lead.prioridade)}`;
-            card.innerHTML = `
-                <header>
-                    <div>
-                        <span class="tag-nicho">${escapeHtml(lead.nicho)}</span>
-                        <h2>${escapeHtml(lead.nome_empresa)}</h2>
-                        <p class="location"><span class="loc-icon">📍</span> ${escapeHtml(lead.cidade)}</p>
-                    </div>
-                    <span class="potential-tag ${priorityClass(lead.prioridade)}">${escapeHtml(lead.prioridade === 'Alta' ? 'Potencial Alto' : lead.prioridade === 'Média' ? 'Potencial Médio' : 'Potencial Baixo')}</span>
-                </header>
-                <div class="lead-grid">
-                    <span>Endereço</span>
-                    <strong>${escapeHtml(lead.endereco || "Não informado")}</strong>
-                    <span>Telefone</span>
-                    <strong>${escapeHtml(lead.telefone_whatsapp || "Não informado")}</strong>
-                    <span>Site</span>
-                    <strong>${lead.site ? `<a href="${escapeAttribute(lead.site)}" target="_blank" rel="noreferrer" class="site-link">${escapeHtml(lead.site)}</a>` : '<span class="no-site-badge">Não tem site</span>'}</strong>
-                    <span>Avaliação</span>
-                    <strong>${formatRating(lead)}</strong>
-                </div>
-                <p class="diagnosis">${escapeHtml(lead.diagnostico)}</p>
-                <footer class="card-actions">
-                    <button class="primary-button save-found-lead" type="button" data-index="${index}">💾 Salvar no CRM</button>
-                    ${lead.google_maps_url ? `<a class="icon-button maps-btn" href="${escapeAttribute(lead.google_maps_url)}" target="_blank" rel="noreferrer">🗺️ Maps</a>` : ""}
-                </footer>
-            `;
-            placesResults.appendChild(card);
+        function currentTone() {
+            return app.querySelector('input[name="tom"]:checked')?.value || "direto";
+        }
+
+        function updateWhatsLink() {
+            if (current && current.whatsapp) {
+                whats.href = `${current.whatsapp}?text=${encodeURIComponent(texto.value)}`;
+                whats.classList.remove("is-disabled");
+                whats.removeAttribute("aria-disabled");
+                whats.title = "";
+            } else {
+                whats.removeAttribute("href");
+                whats.classList.add("is-disabled");
+                whats.setAttribute("aria-disabled", "true");
+                whats.title = "Lead sem telefone cadastrado";
+            }
+        }
+
+        function select(id) {
+            current = items.find(item => String(item.id) === String(id)) || items[0];
+            app.querySelectorAll(".msg-item").forEach(button => {
+                const active = button.dataset.leadId === String(current.id);
+                button.classList.toggle("is-sel", active);
+                button.setAttribute("aria-current", active ? "true" : "false");
+            });
+            nome.textContent = current.nome;
+            meta.textContent = [current.nicho, current.cidade].filter(Boolean).join(" · ");
+            fatos.innerHTML = current.fatos.length
+                ? current.fatos.map(fato => `<span class="badge ${escapeAttribute(fato.nivel)}">${escapeHtml(fato.rotulo)}</span>`).join("")
+                : '<span class="muted">O laudo não registrou fatos para este lead.</span>';
+            texto.value = buildMessage(current, currentTone());
+            enviada.checked = current.status === SENT;
+            updateWhatsLink();
+        }
+
+        app.addEventListener("click", (event) => {
+            const button = event.target.closest(".msg-item");
+            if (button) select(button.dataset.leadId);
         });
+
+        app.querySelectorAll('input[name="tom"]').forEach(radio => {
+            radio.addEventListener("change", () => {
+                texto.value = buildMessage(current, currentTone());
+                updateWhatsLink();
+            });
+        });
+
+        texto.addEventListener("input", updateWhatsLink);
+
+        copiar.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(texto.value);
+                showToast("Mensagem copiada.");
+            } catch (error) {
+                texto.select();
+                showToast("Não foi possível copiar. Selecione o texto e copie manualmente.", "error");
+            }
+        });
+
+        whats.addEventListener("click", (event) => {
+            if (!whats.hasAttribute("href")) event.preventDefault();
+        });
+
+        enviada.addEventListener("change", async () => {
+            const item = current;
+            const newStatus = enviada.checked ? SENT : "Analisado";
+            enviada.disabled = true;
+            const result = await postJson(`/api/leads/${item.id}/status`, { status: newStatus });
+            enviada.disabled = false;
+            if (!result.ok) {
+                if (current === item) enviada.checked = !enviada.checked;
+                showToast(result.message || "Não foi possível atualizar o status.", "error");
+                return;
+            }
+            item.status = newStatus;
+            const badge = app.querySelector(`.msg-item[data-lead-id="${item.id}"] [data-msg-status]`);
+            if (badge) {
+                badge.textContent = newStatus === SENT ? "Enviada" : `Score ${item.score}`;
+                badge.classList.toggle("good", newStatus === SENT);
+            }
+            showToast(newStatus === SENT ? "Lead marcado como mensagem enviada." : "Marcação removida.");
+        });
+
+        select(items[0].id);
     }
 
+    // -------------------------------------------------------------
+    // 4. Configurações: teste de conexão das fontes de captura
+    // -------------------------------------------------------------
     document.addEventListener("click", async (event) => {
-        const saveButton = event.target.closest(".save-found-lead");
-        if (!saveButton) return;
+        const button = event.target.closest(".js-test-source");
+        if (!button) return;
+        const output = button.closest(".source")?.querySelector(".source-result");
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = "Testando…";
 
-        const lead = foundLeads[Number(saveButton.dataset.index)];
-        if (!lead) return;
-
-        saveButton.disabled = true;
-        saveButton.textContent = "Salvando...";
-        
-        const result = await postJson("/api/google-places/salvar", { lead });
-        
-        if (result.ok) {
-            saveButton.textContent = "✓ Salvo";
-            saveButton.className = "icon-button success-btn";
-            showToast("Lead salvo no CRM com sucesso!");
-        } else {
-            saveButton.textContent = result.reason === "duplicado" ? "Duplicado" : "Erro";
-            saveButton.className = "icon-button warning-btn";
-            showToast(result.message || "Lead já cadastrado.", "info");
+        let ok = false;
+        let message = "Não foi possível testar a conexão.";
+        try {
+            const response = await fetch("/api/apify/test-connection", { method: "POST" });
+            const result = await response.json();
+            ok = response.ok && result.ok;
+            // A resposta do servidor pode citar a conta; na tela fica só o resultado.
+            message = ok
+                ? "Conexão funcionando."
+                : response.status === 401 ? "A chave configurada foi recusada pela fonte." : "A fonte não respondeu como esperado.";
+        } catch (error) {
+            message = "Erro de comunicação ao testar a conexão.";
         }
+        if (output) {
+            output.textContent = message;
+            output.className = `notice source-result ${ok ? "success" : "error"}`;
+        }
+        button.disabled = false;
+        button.textContent = label;
     });
 
     // -------------------------------------------------------------
-    // Helper Functions
+    // 5. Menu do celular, avisos e exclusão
+    // -------------------------------------------------------------
+    const menuToggle = document.getElementById("menuToggle");
+    const menuBackdrop = document.getElementById("menuBackdrop");
+
+    function setMenu(open) {
+        document.body.classList.toggle("menu-open", open);
+        if (menuBackdrop) menuBackdrop.hidden = !open;
+        if (menuToggle) {
+            menuToggle.setAttribute("aria-expanded", String(open));
+            menuToggle.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu");
+        }
+    }
+
+    menuToggle?.addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));
+    menuBackdrop?.addEventListener("click", () => setMenu(false));
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && document.body.classList.contains("menu-open")) setMenu(false);
+    });
+
+    document.addEventListener("click", (event) => {
+        const close = event.target.closest(".js-flash-close");
+        if (close) close.closest(".flash")?.remove();
+    });
+
+    // Delegado: vale também para o formulário dentro da gaveta.
+    document.addEventListener("submit", (event) => {
+        if (!event.target.closest(".delete-form")) return;
+        if (!confirm("Excluir este lead de forma permanente?")) event.preventDefault();
+    });
+
+    // -------------------------------------------------------------
+    // Funções de apoio
     // -------------------------------------------------------------
     async function postJson(url, payload) {
         try {
@@ -391,7 +730,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload),
             });
             const data = await response.json();
-            return { ok: response.ok && data.ok, ...data };
+            return { ...data, ok: response.ok && data.ok };
         } catch (error) {
             return { ok: false, message: "Erro de comunicação com o servidor." };
         }
@@ -400,47 +739,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function showToast(message, type = "success") {
         const toast = document.getElementById("toastNotification");
         if (!toast) return;
-
         toast.textContent = message;
         toast.className = `toast ${type}`;
-        toast.classList.remove("hidden");
-        
-        // Triggers reflow for transition
-        toast.offsetWidth; 
+        toast.offsetWidth; // força o reflow para a transição
         toast.classList.add("show");
-
-        setTimeout(() => {
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
             toast.classList.remove("show");
-            setTimeout(() => {
-                toast.classList.add("hidden");
-            }, 300);
-        }, 2200);
-    }
-
-    function setPlacesStatus(message, type) {
-        if (!placesStatus) return;
-        placesStatus.textContent = message;
-        placesStatus.className = `status-panel ${type || "info"}`;
-        placesStatus.classList.remove("hidden");
-    }
-
-    function hidePlacesStatus() {
-        if (!placesStatus) return;
-        placesStatus.className = "status-panel hidden";
-        placesStatus.textContent = "";
-    }
-
-    function priorityClass(priority) {
-        const str = String(priority || "").toLowerCase();
-        if (str.includes("alta") || str.includes("alto")) return "alta";
-        if (str.includes("media") || str.includes("medio")) return "media";
-        return "baixa";
-    }
-
-    function formatRating(lead) {
-        if (!lead.avaliacao) return "Não informado";
-        const count = lead.qtd_avaliacoes ?? 0;
-        return `⭐ ${escapeHtml(String(lead.avaliacao))} (${escapeHtml(String(count))} avaliações)`;
+            setTimeout(() => toast.classList.add("hidden"), 250);
+        }, 2600);
     }
 
     function escapeHtml(value) {
@@ -454,482 +761,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function escapeAttribute(value) {
         return escapeHtml(value).replaceAll("`", "&#096;");
-    }
-    
-    // Copy simple messages on cards
-    document.addEventListener("click", async (event) => {
-        const copyButton = event.target.closest(".copy-message");
-        if (!copyButton) return;
-
-        const originalText = copyButton.textContent;
-        try {
-            await navigator.clipboard.writeText(copyButton.dataset.message || "");
-            copyButton.textContent = "Copiado";
-            setTimeout(() => {
-                copyButton.textContent = originalText;
-            }, 1600);
-        } catch (error) {
-            copyButton.textContent = "Erro ao copiar";
-            setTimeout(() => {
-                copyButton.textContent = originalText;
-            }, 1600);
-        }
-    });
-
-    // Handle delete lead alerts
-    const deleteForms = document.querySelectorAll(".delete-form");
-    deleteForms.forEach(form => {
-        form.addEventListener("submit", (e) => {
-            if (!confirm("Excluir este lead de forma permanente?")) {
-                e.preventDefault();
-            }
-        });
-    });
-
-    // -------------------------------------------------------------
-    // 4. Real AI & Web Search Modal Trigger & Flow
-    // -------------------------------------------------------------
-    const realAiModal = document.getElementById("realAiModal");
-    const closeRealAiModal = document.getElementById("closeRealAiModal");
-    const closeRealAiModalFooter = document.getElementById("closeRealAiModalFooter");
-    const realAiLoading = document.getElementById("realAiLoading");
-    const realAiResults = document.getElementById("realAiResults");
-    
-    const realAiLeadName = document.getElementById("realAiLeadName");
-    const realAiDate = document.getElementById("realAiDate");
-    const realAiScore = document.getElementById("realAiScore");
-    const realAiBadges = document.getElementById("realAiBadges");
-    const realAiExiste = document.getElementById("realAiExiste");
-    const realAiAtividade = document.getElementById("realAiAtividade");
-    const realAiStatusProvavel = document.getElementById("realAiStatusProvavel");
-    const realAiConfianca = document.getElementById("realAiConfianca");
-    const realAiWhatsLead = document.getElementById("realAiWhatsLead");
-    const realAiWhatsInsta = document.getElementById("realAiWhatsInsta");
-    const realAiWhatsSite = document.getElementById("realAiWhatsSite");
-    const realAiWhatsWaMe = document.getElementById("realAiWhatsWaMe");
-    const realAiWhatsCompat = document.getElementById("realAiWhatsCompat");
-    const realAiWhatsConfianca = document.getElementById("realAiWhatsConfianca");
-    const realAiWhatsObs = document.getElementById("realAiWhatsObs");
-    const realAiInstagramEncontrado = document.getElementById("realAiInstagramEncontrado");
-    const realAiInstagramLink = document.getElementById("realAiInstagramLink");
-    const realAiInstagramTipoLink = document.getElementById("realAiInstagramTipoLink");
-    const realAiInstagramObs = document.getElementById("realAiInstagramObs");
-    const realAiSiteEncontrado = document.getElementById("realAiSiteEncontrado");
-    const realAiTipoSite = document.getElementById("realAiTipoSite");
-    const realAiQualidadeSite = document.getElementById("realAiQualidadeSite");
-    const realAiMotivoSite = document.getElementById("realAiMotivoSite");
-    const realAiReasonText = document.getElementById("realAiReasonText");
-    const realAiProblema = document.getElementById("realAiProblema");
-    const realAiOferta = document.getElementById("realAiOferta");
-    const realAiPreco = document.getElementById("realAiPreco");
-    const realAiAprovado = document.getElementById("realAiAprovado");
-    const realAiPrioridade = document.getElementById("realAiPrioridade");
-    const realAiMotivoPrioridade = document.getElementById("realAiMotivoPrioridade");
-    const realAiProximoPasso = document.getElementById("realAiProximoPasso");
-    const realAiPotentialBadge = document.getElementById("realAiPotentialBadge");
-    const realAiMessageText = document.getElementById("realAiMessageText");
-    
-    const copyRealAiSummaryBtn = document.getElementById("copyRealAiSummary");
-    const copyRealAiMessageBtn = document.getElementById("copyRealAiMessage");
-    const realAiSourcesSection = document.getElementById("realAiSourcesSection");
-    const realAiSourcesList = document.getElementById("realAiSourcesList");
-    const reanalyzeRealAiBtn = document.getElementById("reanalyzeRealAiBtn");
-
-    let currentRealAiLeadCard = null;
-
-    document.addEventListener("click", async (event) => {
-        const realAiBtn = event.target.closest(".run-real-ai-btn");
-        if (!realAiBtn) return;
-
-        const card = realAiBtn.closest(".lead-card");
-        if (!card) return;
-
-        currentRealAiLeadCard = card;
-        const leadId = card.dataset.leadId;
-        const nome = card.dataset.nome;
-        
-        realAiModal.classList.remove("hidden");
-        realAiLeadName.textContent = nome;
-
-        // Check if there is already an analysis result in card dataset
-        const hasResult = card.dataset.iaRealResultado && card.dataset.iaRealResultado.trim() !== "";
-        if (hasResult) {
-            try {
-                const parsedResult = JSON.parse(card.dataset.iaRealResultado);
-                showRealAiResults({
-                    data: parsedResult,
-                    score: card.dataset.iaRealScore,
-                    potencial: card.dataset.iaRealPotencial,
-                    fontes: JSON.parse(card.dataset.iaRealFontes || "[]"),
-                    analisado_em: card.dataset.analisadoEm
-                }, card);
-            } catch (err) {
-                // If parsing fails, fall back to triggering fetch
-                triggerRealAiFetch(leadId, card, false);
-            }
-        } else {
-            triggerRealAiFetch(leadId, card, false);
-        }
-    });
-
-    async function triggerRealAiFetch(leadId, card, reanalisar) {
-        showRealAiLoading();
-
-        // Animate steps
-        const steps = realAiLoading.querySelectorAll(".step");
-        steps.forEach(s => s.classList.remove("active"));
-        
-        let stepIndex = 0;
-        steps[0].classList.add("active");
-        
-        const stepInterval = setInterval(() => {
-            stepIndex++;
-            if (stepIndex < steps.length) {
-                steps[stepIndex].classList.add("active");
-            }
-        }, 500);
-
-        try {
-            const startTime = Date.now();
-            const response = await fetch(`/api/leads/${leadId}/pesquisar-ia-real`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reanalisar: reanalisar })
-            });
-            const result = await response.json();
-
-            const duration = Date.now() - startTime;
-            const delay = Math.max(0, 1500 - duration);
-
-            setTimeout(() => {
-                clearInterval(stepInterval);
-                if (response.ok && result.ok) {
-                    // Update card dataset
-                    card.dataset.iaRealResultado = JSON.stringify(result.data);
-                    card.dataset.iaRealScore = result.score;
-                    card.dataset.iaRealPotencial = result.potencial;
-                    card.dataset.iaRealFontes = JSON.stringify(result.fontes || []);
-                    card.dataset.analisadoEm = result.analisado_em || new Date().toLocaleString();
-
-                    // Update CRM UI
-                    updateCardUiAfterRealAnalysis(card, result);
-
-                    // Show results in modal
-                    showRealAiResults(result, card);
-                } else {
-                    const errMsg = result.message || "Erro desconhecido ao executar pesquisa com IA.";
-                    showToast(errMsg, "error");
-                    realAiModal.classList.add("hidden");
-                }
-            }, delay);
-        } catch (error) {
-            clearInterval(stepInterval);
-            showToast("Falha de conexão ao acessar IA real.", "error");
-            realAiModal.classList.add("hidden");
-        }
-    }
-
-    function showRealAiLoading() {
-        realAiLoading.classList.remove("hidden");
-        realAiResults.classList.add("hidden");
-        reanalyzeRealAiBtn.style.display = "none";
-    }
-
-    function showRealAiResults(result, card) {
-        realAiLoading.classList.add("hidden");
-        realAiResults.classList.remove("hidden");
-        reanalyzeRealAiBtn.style.display = "inline-flex";
-
-        const data = result.data;
-
-        // Header and Date
-        realAiDate.textContent = `Analisado em: ${result.analisado_em || 'Recente'}`;
-        realAiScore.textContent = `${result.score || 0}/100`;
-
-        realAiExiste.textContent = capitalizeFirstLetter(data.empresa_existe || "incerto");
-        realAiAtividade.textContent = capitalizeFirstLetter(data.sinais_atividade || "incerto");
-        realAiStatusProvavel.textContent = capitalizeFirstLetter((data.status_provavel || "incerta").replaceAll("_", " "));
-        realAiConfianca.textContent = `${Number(data.confianca_verificacao || 0)}/100`;
-
-        realAiWhatsLead.textContent = data.whatsapp_numero_informado || card.dataset.telefone || "não informado";
-        realAiWhatsInsta.textContent = data.whatsapp_numero_instagram || "não identificado";
-        realAiWhatsSite.textContent = data.whatsapp_numero_site || "não identificado";
-        realAiWhatsWaMe.textContent = data.whatsapp_numero_wa_me || "não identificado";
-        realAiWhatsCompat.textContent = capitalizeFirstLetter((data.compatibilidade_whatsapp || "incerto").replaceAll("_", " "));
-        realAiWhatsConfianca.textContent = capitalizeFirstLetter(data.confianca_whatsapp || "baixa");
-        realAiWhatsObs.textContent = data.observacao_whatsapp || "Sem observação específica para WhatsApp.";
-
-        realAiInstagramEncontrado.textContent = capitalizeFirstLetter(data.instagram_encontrado || "incerto");
-        realAiInstagramLink.textContent = capitalizeFirstLetter(data.instagram_bio_tem_link || "incerto");
-        realAiInstagramTipoLink.textContent = formatInstagramLinkType(data.instagram_tipo_link_bio || "nao_identificado");
-        realAiInstagramObs.textContent = data.instagram_observacao_oportunidade || "Sem observação específica para Instagram.";
-
-        realAiSiteEncontrado.textContent = capitalizeFirstLetter(data.site_encontrado || "incerto");
-        realAiTipoSite.textContent = formatSiteType(data.tipo_site || "incerto");
-        realAiQualidadeSite.textContent = capitalizeFirstLetter(data.qualidade_site || "incerta");
-        realAiMotivoSite.textContent = data.motivo_qualidade_site || "Sem evidências suficientes para classificar o site com confiança.";
-
-        // Sections
-        realAiReasonText.textContent = data.diagnostico || "Sem diagnóstico disponível.";
-        realAiProblema.textContent = data.problema_detectado || "Nenhum detectado.";
-        realAiOferta.textContent = data.oferta_recomendada || "Nenhuma sugestão.";
-        realAiPreco.textContent = data.preco_sugerido || "Sob consulta";
-        realAiAprovado.textContent = capitalizeFirstLetter((data.lead_aprovado_abordagem || "com_ressalvas").replaceAll("_", " "));
-        realAiPrioridade.textContent = capitalizeFirstLetter(data.prioridade || "media");
-        realAiMotivoPrioridade.textContent = data.motivo_prioridade || "Prioridade definida por sinais públicos de presença digital e consistência de contato.";
-        realAiProximoPasso.textContent = data.proximo_passo || "Validar abordagem com mensagem curta e confirmar o canal mais confiável.";
-
-        // Potential Badge
-        const potencial = result.potencial || "baixo";
-        realAiPotentialBadge.textContent = `Potencial ${capitalizeFirstLetter(potencial)}`;
-        realAiPotentialBadge.className = `potential-badge ${priorityClass(potencial)}`;
-        renderLaudoBadges(data);
-
-        // Message
-        realAiMessageText.value = data.mensagem_whatsapp || "";
-
-        // Sources List
-        realAiSourcesList.innerHTML = "";
-        const fontes = result.fontes || [];
-        if (fontes && fontes.length > 0) {
-            realAiSourcesSection.classList.remove("hidden");
-            fontes.forEach(url => {
-                const li = document.createElement("li");
-                try {
-                    const parsedUrl = new URL(url);
-                    const domain = parsedUrl.hostname.replace("www.", "");
-                    li.innerHTML = `<a href="${url}" target="_blank" rel="noreferrer" style="color: #a5f3fc; text-decoration: underline;">${domain}</a> — Link da pesquisa`;
-                } catch (e) {
-                    li.textContent = url;
-                }
-                realAiSourcesList.appendChild(li);
-            });
-        } else {
-            realAiSourcesSection.classList.add("hidden");
-        }
-    }
-
-    function updateCardUiAfterRealAnalysis(card, result) {
-        // Update "Pesquisar com IA real" button text
-        const realBtn = card.querySelector(".run-real-ai-btn");
-        if (realBtn) {
-            realBtn.textContent = "📋 Ver laudo do lead";
-        }
-
-        // Set Real AI Analyzed Badge in header
-        const badgesContainer = card.querySelector(".card-badges");
-        if (badgesContainer) {
-            // Remove simulated badge if present
-            const oldBadge = badgesContainer.querySelector(".ai-badge-card");
-            if (oldBadge) {
-                oldBadge.remove();
-            }
-            
-            // Add new Real AI Badge
-            const realBadge = document.createElement("span");
-            realBadge.className = "ai-badge-card";
-            realBadge.style.background = "rgba(168, 85, 247, 0.12)";
-            realBadge.style.borderColor = "rgba(168, 85, 247, 0.3)";
-            realBadge.style.color = "#c084fc";
-            realBadge.textContent = "🌐 IA Real Analisou";
-            badgesContainer.insertBefore(realBadge, badgesContainer.firstChild);
-        }
-
-        // Update status dropdown selection
-        const statusSelect = card.querySelector(".crm-status-select");
-        if (statusSelect) {
-            statusSelect.value = "Analisado";
-        }
-
-        // Update preview description box
-        const diagText = result.data.diagnostico || "Laudo concluído com foco em verificação de qualidade do lead.";
-        const truncatedMotivo = diagText.length > 140 ? diagText.slice(0, 137) + "..." : diagText;
-        const diagnosisParagraph = card.querySelector(".diagnosis");
-        let aiPreview = card.querySelector(".ai-preview-box");
-        
-        if (diagnosisParagraph) {
-            diagnosisParagraph.remove();
-        }
-        
-        if (!aiPreview) {
-            aiPreview = document.createElement("div");
-            aiPreview.className = "ai-preview-box";
-            card.insertBefore(aiPreview, card.querySelector(".card-actions"));
-        }
-        
-        aiPreview.innerHTML = `
-            <span class="ai-box-title" style="color: #c084fc;">📋 Laudo de Verificação:</span>
-            <p class="ai-box-motivo" style="color: #f3e8ff;">${truncatedMotivo}</p>
-        `;
-    }
-
-    // Modal control actions
-    if (closeRealAiModal) {
-        closeRealAiModal.addEventListener("click", () => realAiModal.classList.add("hidden"));
-    }
-    if (closeRealAiModalFooter) {
-        closeRealAiModalFooter.addEventListener("click", () => realAiModal.classList.add("hidden"));
-    }
-    window.addEventListener("click", (event) => {
-        if (event.target === realAiModal) {
-            realAiModal.classList.add("hidden");
-        }
-    });
-
-    // Reanalyze button trigger
-    if (reanalyzeRealAiBtn) {
-        reanalyzeRealAiBtn.addEventListener("click", () => {
-            if (currentRealAiLeadCard) {
-                const leadId = currentRealAiLeadCard.dataset.leadId;
-                triggerRealAiFetch(leadId, currentRealAiLeadCard, true);
-            }
-        });
-    }
-
-    // Message copying logic for real AI message
-    if (copyRealAiMessageBtn) {
-        copyRealAiMessageBtn.addEventListener("click", async () => {
-            const originalText = copyRealAiMessageBtn.textContent;
-            try {
-                await navigator.clipboard.writeText(realAiMessageText.value || "");
-                copyRealAiMessageBtn.textContent = "📋 Copiado!";
-                setTimeout(() => copyRealAiMessageBtn.textContent = originalText, 1600);
-            } catch (error) {
-                copyRealAiMessageBtn.textContent = "Erro ao copiar";
-                setTimeout(() => copyRealAiMessageBtn.textContent = originalText, 1600);
-            }
-        });
-    }
-
-    if (copyRealAiSummaryBtn) {
-        copyRealAiSummaryBtn.addEventListener("click", async () => {
-            const originalText = copyRealAiSummaryBtn.textContent;
-            const summary = buildLaudoSummary();
-            try {
-                await navigator.clipboard.writeText(summary);
-                copyRealAiSummaryBtn.textContent = "📋 Resumo copiado!";
-                setTimeout(() => copyRealAiSummaryBtn.textContent = originalText, 1600);
-            } catch (error) {
-                copyRealAiSummaryBtn.textContent = "Erro ao copiar";
-                setTimeout(() => copyRealAiSummaryBtn.textContent = originalText, 1600);
-            }
-        });
-    }
-
-    // Helper formatting functions
-    function capitalizeFirstLetter(string) {
-        if (!string) return "";
-        return string.charAt(0).toUpperCase() + string.slice(1);
-    }
-
-    function formatSiteType(type) {
-        const types = {
-            "proprio": "Site próprio",
-            "site_proprio": "Site próprio",
-            "generico": "Site terceirizado",
-            "site_terceirizado": "Site terceirizado",
-            "cardapio_plataforma_externa": "Cardápio/plataforma externa",
-            "nao_encontrado": "Não Encontrado",
-            "incerto": "Incerto",
-            "rede_social": "Rede social"
-        };
-        return types[type] || capitalizeFirstLetter(type);
-    }
-
-    function formatInstagramLinkType(type) {
-        const types = {
-            "dominio_proprio": "Domínio próprio",
-            "linktree_ou_similar": "Linktree/Beacons/similar",
-            "whatsapp_direto": "WhatsApp direto",
-            "google_sites": "Google Sites",
-            "canva_site": "Canva site",
-            "wix_ou_similar": "Wix ou similar",
-            "cardapio_online_terceirizado": "Cardápio online terceirizado",
-            "nao_identificado": "Não identificado"
-        };
-        return types[type] || capitalizeFirstLetter(String(type || "").replaceAll("_", " "));
-    }
-
-    function renderLaudoBadges(data) {
-        if (!realAiBadges) return;
-        const badges = [];
-        const compat = String(data.compatibilidade_whatsapp || "incerto").toLowerCase();
-        const tipoSite = String(data.tipo_site || "incerto").toLowerCase();
-        const aprovado = String(data.lead_aprovado_abordagem || "com_ressalvas").toLowerCase();
-
-        if (compat === "compativel") badges.push({ label: "WhatsApp compatível", tone: "success" });
-        else if (compat === "divergente") badges.push({ label: "WhatsApp suspeito", tone: "danger" });
-        else badges.push({ label: "WhatsApp incerto", tone: "warn" });
-
-        if (tipoSite === "site_proprio" || tipoSite === "proprio") badges.push({ label: "Site próprio", tone: "success" });
-        else if (tipoSite === "site_terceirizado" || tipoSite === "generico") badges.push({ label: "Site terceirizado", tone: "warn" });
-        else badges.push({ label: "Sem site próprio", tone: "danger" });
-
-        if (aprovado === "sim") badges.push({ label: "Lead aprovado", tone: "success" });
-        else badges.push({ label: "Lead com ressalvas", tone: "warn" });
-
-        realAiBadges.innerHTML = badges.map(b => `<span class=\"laudo-badge ${b.tone}\">${b.label}</span>`).join("");
-    }
-
-    function buildLaudoSummary() {
-        return [
-            `Laudo do Lead: ${realAiLeadName?.textContent || "-"}`,
-            `Score: ${realAiScore?.textContent || "0/100"}`,
-            `Empresa: ${realAiExiste?.textContent || "Incerto"} | Atividade: ${realAiAtividade?.textContent || "Incerto"} | Status: ${realAiStatusProvavel?.textContent || "Incerto"}`,
-            `WhatsApp: ${realAiWhatsCompat?.textContent || "Incerto"} (${realAiWhatsConfianca?.textContent || "Baixa"})`,
-            `Instagram: ${realAiInstagramEncontrado?.textContent || "Incerto"} | Link na bio: ${realAiInstagramLink?.textContent || "Incerto"} | Tipo: ${realAiInstagramTipoLink?.textContent || "Não identificado"}`,
-            `Site: ${realAiSiteEncontrado?.textContent || "Incerto"} | Tipo: ${realAiTipoSite?.textContent || "Incerto"} | Qualidade: ${realAiQualidadeSite?.textContent || "Incerta"}`,
-            `Decisão: ${realAiAprovado?.textContent || "Com ressalvas"} | Prioridade: ${realAiPrioridade?.textContent || "Média"}`,
-            `Motivo prioridade: ${realAiMotivoPrioridade?.textContent || "-"}`,
-            `Próximo passo: ${realAiProximoPasso?.textContent || "-"}`,
-            `Oferta: ${realAiOferta?.textContent || "-"}`,
-            `Mensagem abordagem: ${realAiMessageText?.value || "-"}`
-        ].join("\\n");
-    }
-
-    // -------------------------------------------------------------
-    // 5. Apify API Connection Tester
-    // -------------------------------------------------------------
-    const btnTestApify = document.getElementById("btnTestApify");
-    const apifyTestStatus = document.getElementById("apifyTestStatus");
-
-    if (btnTestApify) {
-        btnTestApify.addEventListener("click", async () => {
-            btnTestApify.disabled = true;
-            btnTestApify.textContent = "🔌 Conectando à API do Apify...";
-            apifyTestStatus.classList.add("hidden");
-
-            try {
-                const response = await fetch("/api/apify/test-connection", {
-                    method: "POST"
-                });
-                const result = await response.json();
-
-                apifyTestStatus.classList.remove("hidden");
-                if (response.ok && result.ok) {
-                    apifyTestStatus.style.background = "rgba(16, 185, 129, 0.15)";
-                    apifyTestStatus.style.border = "1px solid rgba(16, 185, 129, 0.3)";
-                    apifyTestStatus.style.color = "#a7f3d0";
-                    apifyTestStatus.textContent = result.message;
-                    showToast("Conexão com Apify estabelecida!", "info");
-                } else {
-                    apifyTestStatus.style.background = "rgba(239, 68, 68, 0.15)";
-                    apifyTestStatus.style.border = "1px solid rgba(239, 68, 68, 0.3)";
-                    apifyTestStatus.style.color = "#fecaca";
-                    apifyTestStatus.textContent = result.message || "Erro desconhecido ao testar token.";
-                    showToast(result.message || "Erro ao conectar com Apify.", "error");
-                }
-            } catch (error) {
-                apifyTestStatus.classList.remove("hidden");
-                apifyTestStatus.style.background = "rgba(239, 68, 68, 0.15)";
-                apifyTestStatus.style.border = "1px solid rgba(239, 68, 68, 0.3)";
-                apifyTestStatus.style.color = "#fecaca";
-                apifyTestStatus.textContent = "Falha de comunicação ou de rede ao testar API.";
-                showToast("Erro de conexão ao testar Apify.", "error");
-            } finally {
-                btnTestApify.disabled = false;
-                btnTestApify.textContent = "🔌 Testar Conexão com Apify";
-            }
-        });
     }
 });

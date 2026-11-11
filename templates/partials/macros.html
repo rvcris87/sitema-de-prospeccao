@@ -1,0 +1,12 @@
+{# Macros compartilhadas. Importar com: {% from "partials/macros.html" import score %} #}
+
+{# Score do lead: número + barra colorida; "—" em cinza quando o lead não foi analisado. #}
+{% macro score(lead, total=False, vazio="—") -%}
+{% if lead._score_nivel == 'nenhum' -%}
+<span class="score score-nenhum" title="Lead ainda não analisado">{{ vazio }}</span>
+{%- else -%}
+<span class="score score-{{ lead._score_nivel }}"><b>{{ lead._score }}</b>{% if total %}<small>/100</small>{% endif %}
+    <span class="score-bar" aria-hidden="true"><i style="width: {{ [lead._score, 100]|min }}%"></i></span>
+</span>
+{%- endif %}
+{%- endmacro %}

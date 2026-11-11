@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Criar conta | Radar Local IA</title>
+    {% include "partials/head.html" %}
+</head>
+<body>
+    <div class="auth">
+        <aside class="brand-panel">
+            {% include "partials/rings.html" %}
+            <a class="brand-mark" href="{{ url_for('landing') }}">{{ icon('radar', 22) }}<span>Radar Local IA</span></a>
+            <div class="brand-copy">
+                <h1>Pare de perder tempo com lead ruim.</h1>
+                <p>Crie sua conta, capture empresas da sua região e gere o laudo de cada uma antes de abordar.</p>
+            </div>
+            <p class="brand-foot">Radar Local IA</p>
+        </aside>
+
+        <main class="auth-side">
+            <div class="auth-form">
+                <div>
+                    <h1>Criar conta</h1>
+                    <p class="muted">Leva menos de um minuto.</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-list" role="status">
+                            {% for category, message in messages %}
+                                <div class="flash {{ category }}"><span>{{ message }}</span></div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <form method="post" action="{{ url_for('cadastro') }}">
+                    <div class="field">
+                        <label for="nome">Nome</label>
+                        <input type="text" name="nome" id="nome" required autocomplete="name">
+                    </div>
+                    <div class="field">
+                        <label for="email">E-mail</label>
+                        <input type="email" name="email" id="email" required autocomplete="email" placeholder="voce@empresa.com">
+                    </div>
+                    <div class="field">
+                        <label for="senha">Senha</label>
+                        <input type="password" name="senha" id="senha" required autocomplete="new-password">
+                    </div>
+                    <div class="field">
+                        <label for="confirmar_senha">Confirmar senha</label>
+                        <input type="password" name="confirmar_senha" id="confirmar_senha" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+                </form>
+
+                <p class="auth-alt">Já tem conta? <a href="{{ url_for('login') }}">Entrar</a></p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

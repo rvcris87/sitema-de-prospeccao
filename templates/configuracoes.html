@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Configurações | Radar Local IA{% endblock %}
+
+{% macro estado(configurada) -%}
+<span class="badge {{ 'good' if configurada else 'warn' }}">{{ 'Configurada' if configurada else 'Não configurada' }}</span>
+{%- endmacro %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <h1>Configurações</h1>
+        <p>Sua conta, as fontes de captura e o uso das análises.</p>
+    </div>
+</header>
+
+<div class="settings">
+    <section class="card" aria-labelledby="cfgConta">
+        <div class="card-head"><h2 id="cfgConta">Conta</h2></div>
+        <div class="card-body">
+            <dl class="kv">
+                <dt>Nome</dt><dd>{{ current_user.nome }}</dd>
+                <dt>E-mail</dt><dd>{{ current_user.email }}</dd>
+                <dt>Plano</dt><dd>{{ current_user.plano }}</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="cfgFontes">
+        <div class="card-head">
+            <h2 id="cfgFontes">Fontes de captura</h2>
+            <p>As chaves ficam no servidor e nunca aparecem aqui.</p>
+        </div>
+        <div class="source">
+            <div class="source-main">
+                <strong>Google Places {{ estado(fontes.google_places) }}</strong>
+                <span>Busca de empresas na tela Capturar leads. Usa a conta Apify.</span>
+            </div>
+            <button class="btn js-test-source" type="button" {% if not fontes.google_places %}disabled{% endif %}>Testar conexão</button>
+            <div class="notice source-result hidden" role="status" aria-live="polite"></div>
+        </div>
+        <div class="source">
+            <div class="source-main">
+                <strong>Apify {{ estado(fontes.apify) }}</strong>
+                <span>Importação de planilhas exportadas do Apify.</span>
+            </div>
+            <a class="btn" href="{{ url_for('importar_apify') }}">Importar CSV</a>
+            <button class="btn js-test-source" type="button" {% if not fontes.apify %}disabled{% endif %}>Testar conexão</button>
+            <div class="notice source-result hidden" role="status" aria-live="polite"></div>
+        </div>
+        {% if not fontes.google_places or not fontes.apify %}
+        <div class="source">
+            <p class="muted">Para configurar uma fonte, o administrador do servidor precisa cadastrar a chave de acesso no ambiente da aplicação.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="cfgAnalises">
+        <div class="card-head"><h2 id="cfgAnalises">Análises de laudo</h2></div>
+        <div class="card-body usage">
+            <div class="usage-top">
+                <span>{{ analises.usadas }} de {{ analises.limite }} análises usadas</span>
+                <span class="muted">{{ analises.pct }}%</span>
+            </div>
+            <span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ analises.limite }}" aria-valuenow="{{ analises.usadas }}" aria-label="Análises usadas"><i style="width: {{ analises.pct }}%"></i></span>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="cfgSeguranca">
+        <div class="card-head"><h2 id="cfgSeguranca">Segurança</h2></div>
+        <div class="card-body">
+            <p class="muted">Sua senha é guardada de forma protegida e não é exibida em nenhuma tela.</p>
+            <div class="form-actions">
+                <a class="btn" href="{{ url_for('logout') }}">{{ icon('logout', 16) }}<span>Encerrar sessão</span></a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

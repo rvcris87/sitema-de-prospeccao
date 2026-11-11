@@ -3,6 +3,7 @@ import re
 import json
 import urllib.request
 import urllib.parse
+import socket
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -273,6 +274,19 @@ Por favor, faça a análise com base estritamente nos resultados de busca fornec
             payload["confianca_verificacao"] = 0
         return payload
 
+    connection_error_message = (
+        "Não foi possível conectar à OpenAI neste ambiente. "
+        "Verifique firewall, antivírus, proxy ou rode o app em ambiente com acesso externo."
+    )
+
+    def is_connection_error(err):
+        err_text = str(err or "").lower()
+        if "connection error" in err_text or "timeout" in err_text or "timed out" in err_text:
+            return True
+        if "winerror 10013" in err_text:
+            return True
+        return isinstance(err, (TimeoutError, socket.timeout, ConnectionError))
+
     try:
         from openai import OpenAI
         client = OpenAI(api_key=api_key)
@@ -325,6 +339,12 @@ Por favor, faça a análise com base estritamente nos resultados de busca fornec
                     or "variable" in err_msg
                 )
 
+                if is_connection_error(stored_prompt_err):
+                    return {
+                        "ok": False,
+                        "connection_issue": True,
+                        "message": connection_error_message
+                    }
                 if variable_error:
                     print("[FALLBACK] Erro de variável no Stored Prompt detectado. Executando fallback com input direto em responses.create().", flush=True)
                 else:
@@ -371,6 +391,12 @@ Por favor, faça a análise com base estritamente nos resultados de busca fornec
         }
     except Exception as e:
         print(f"[CRITICAL ERROR] Erro crítico no serviço de IA: {str(e)}")
+        if is_connection_error(e):
+            return {
+                "ok": False,
+                "connection_issue": True,
+                "message": connection_error_message
+            }
         return {
             "ok": False,
             "message": f"Erro inesperado no serviço de IA: {str(e)}"

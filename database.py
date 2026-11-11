@@ -17,7 +17,9 @@ def _resolve_database_path():
         # If app folder is writable, keep local behavior.
         with open(BASE_DIR / ".write_test", "w", encoding="utf-8") as f:
             f.write("ok")
-        (BASE_DIR / ".write_test").unlink(missing_ok=True)
+        test_file = BASE_DIR / ".write_test"
+        if test_file.exists():
+            test_file.unlink()
         return local_db
     except Exception:
         # Fallback for platforms where app dir is read-only.
@@ -49,9 +51,23 @@ SITE_QUALITY_OPTIONS = [
 PRIORITY_OPTIONS = ["Alta", "Média", "Baixa"]
 
 
+class ClosingConnection(sqlite3.Connection):
+    """Conexão que, usada com `with`, faz commit/rollback E fecha ao sair.
+
+    O `with` padrão do sqlite3 só faz commit e deixa a conexão aberta.
+    """
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 def get_connection():
     """Open a SQLite connection prepared to return rows as dictionaries."""
-    connection = sqlite3.connect(DATABASE_PATH)
+    # timeout=10: espera até 10s por um lock (escrita concorrente, OneDrive sincronizando).
+    connection = sqlite3.connect(DATABASE_PATH, timeout=10, factory=ClosingConnection)
     connection.row_factory = sqlite3.Row
     return connection
 
@@ -59,6 +75,8 @@ def get_connection():
 def init_db():
     """Create and migrate the leads table if this is the first application run."""
     with get_connection() as connection:
+        # WAL: leituras não bloqueiam durante escritas. É persistente no arquivo do banco.
+        connection.execute("PRAGMA journal_mode=WAL")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS leads (
@@ -92,6 +110,18 @@ def init_db():
                 analisado_em TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                senha_hash TEXT NOT NULL,
+                plano TEXT NOT NULL DEFAULT 'Plano Inicial',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )

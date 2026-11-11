@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Leads | Radar Local IA{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <h1>Leads</h1>
+        <p>Clique em um lead para abrir o laudo e decidir a abordagem.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" href="{{ url_for('new_lead') }}">{{ icon('plus', 16) }}<span>Novo lead</span></a>
+        <a class="btn btn-primary" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+    </div>
+</header>
+
+<div class="lv-chips" id="leadsStatusChips" role="group" aria-label="Filtrar por status do funil"></div>
+<script type="application/json" id="leadsInitialCounts">{{ contagens|tojson }}</script>
+
+<section class="card">
+    <form class="lv-filters" method="get" id="leadsFilterForm" data-api-url="{{ url_for('api_list_leads') }}" role="search">
+        <div class="field">
+            <label for="filtroBusca">Buscar</label>
+            <input type="search" id="filtroBusca" name="q" value="{{ filters.q }}" placeholder="Nome da empresa" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="filtroStatus">Status</label>
+            <select id="filtroStatus" name="status">
+                <option value="">Todos</option>
+                {% for option in status_options %}<option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="filtroNicho">Nicho</label>
+            <select id="filtroNicho" name="nicho">
+                <option value="">Todos</option>
+                {% for option in filter_options.nichos %}<option value="{{ option }}" {% if filters.nicho == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="filtroCidade">Cidade</label>
+            <select id="filtroCidade" name="cidade">
+                <option value="">Todas</option>
+                {% for option in filter_options.cidades %}<option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="filtroAprovacao">Laudo</label>
+            <select id="filtroAprovacao" name="aprovacao">
+                <option value="">Todos</option>
+                <option value="sim" {% if filters.aprovacao == 'sim' %}selected{% endif %}>Aprovados</option>
+                <option value="com_ressalvas" {% if filters.aprovacao == 'com_ressalvas' %}selected{% endif %}>Com ressalvas</option>
+            </select>
+        </div>
+        <a class="btn" href="{{ url_for('leads_page') }}" data-clear-filters>Limpar</a>
+        <noscript><button class="btn" type="submit">Filtrar</button></noscript>
+    </form>
+
+    <div class="lv-table-wrap">
+        <table class="lv-table is-cards">
+            <thead>
+                <tr><th>Empresa</th><th>Nicho / Cidade</th><th>Score</th><th>Status</th><th>Presença digital</th></tr>
+            </thead>
+            <tbody id="leadsTableBody">
+                {% include "partials/lead_rows.html" %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% include "partials/lead_drawer_shell.html" %}
+{% endblock %}

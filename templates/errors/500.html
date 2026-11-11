@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Erro interno | Radar Local IA</title>
+    {% include "partials/head.html" %}
+</head>
+<body>
+    <main class="error-page">
+        <div class="card error-card">
+            <h1>Algo deu errado por aqui</h1>
+            <p class="muted">O servidor encontrou um erro ao abrir esta página. Seus dados estão seguros. Tente recarregar; se o erro continuar, o detalhe técnico ficou registrado no servidor.</p>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="button" onclick="location.reload()">Tentar de novo</button>
+                <a class="btn" href="/dashboard">Ir para a Visão geral</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

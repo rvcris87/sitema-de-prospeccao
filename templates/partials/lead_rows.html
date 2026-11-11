@@ -1,0 +1,38 @@
+{# Linhas da tabela de leads. Usado por leads.html e pelas APIs (/api/leads, status, detalhe). #}
+{% from "partials/macros.html" import score %}
+{% for lead in leads %}
+{% set p = montar_presenca(lead) %}
+<tr class="lead-row" data-lead-id="{{ lead.id }}" data-status="{{ lead.status or '' }}" tabindex="0" aria-label="Abrir laudo de {{ lead.nome_empresa }}">
+    <td class="col-empresa"><span class="lead-name">{{ lead.nome_empresa }}</span></td>
+    <td class="col-nicho">
+        <span>{{ lead.nicho or 'Nicho não informado' }}</span>
+        <span class="lead-sub">{{ lead.cidade or 'Cidade não informada' }}</span>
+    </td>
+    <td class="col-score">{{ score(lead) }}</td>
+    <td class="col-status">
+        <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}" aria-label="Status de {{ lead.nome_empresa }}">
+            {% for option in status_options %}<option value="{{ option }}" {% if lead.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select>
+    </td>
+    <td class="col-presenca">
+        <span class="badges">
+            {% for chave, rotulo in [('whatsapp', 'WhatsApp'), ('instagram', 'Instagram'), ('site', 'Site')] %}
+            <span class="selo selo-{{ p[chave].nivel }}" title="{{ rotulo }}: {{ p[chave].rotulo }}">{{ rotulo }}<span class="sr-only">: {{ p[chave].rotulo }}</span></span>
+            {% endfor %}
+        </span>
+    </td>
+</tr>
+{% else %}
+<tr class="lead-row-empty"><td colspan="5">
+    <div class="empty">
+        {% if filtrado %}
+        <h3>Nenhum lead com esses filtros</h3>
+        <p>Ajuste a busca ou limpe os filtros para ver todos os leads.</p>
+        {% else %}
+        <h3>Nenhum lead cadastrado ainda</h3>
+        <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
+        <a href="{{ url_for('buscar_leads') }}" class="btn btn-primary">Capturar leads</a>
+        {% endif %}
+    </div>
+</td></tr>
+{% endfor %}

@@ -1,51 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Buscar Leads | Radar Local IA{% endblock %}
+{% block title %}Capturar leads | Radar Local IA{% endblock %}
 
 {% block content %}
-<section class="page-header">
+<header class="page-head">
     <div>
-        <p class="eyebrow">Google Places API</p>
-        <h1>Buscar Empresas Locais</h1>
+        <h1>Capturar leads</h1>
+        <p>Busque empresas por nicho e cidade e escolha quais entram na sua lista de leads.</p>
     </div>
-    <a class="ghost-button" href="{{ url_for('index') }}">← Voltar ao CRM</a>
-</section>
+</header>
 
-<div class="glass-card search-card">
-    <form class="search-panel" id="googlePlacesForm">
-        <label>
-            Nicho de atuação
-            <input name="nicho" required placeholder="Ex.: barbearia, clínica estética, pizzaria, academia">
-        </label>
-        <label>
-            Cidade
-            <input name="cidade" required placeholder="Ex.: Recife, Curitiba, Belo Horizonte">
-        </label>
-        <label>
-            Limite de resultados
-            <input name="limite" type="number" min="1" max="20" value="20">
-        </label>
-        <div class="form-submit-container">
-            <button class="primary-button btn-full animate-hover" type="submit">🔍 Encontrar Empresas</button>
-        </div>
-    </form>
+{% if not fonte_configurada %}
+<div class="notice warn" role="status">
+    <span>A fonte de busca (Google Places) ainda não está configurada. Veja em <a href="{{ url_for('configuracoes_page') }}">Configurações</a>.</span>
 </div>
+{% endif %}
 
-<section class="api-help highlight-border">
-    <strong>💡 Como funciona a busca automática?</strong>
-    <span>Radar Local se conecta diretamente à API do Google Places para extrair estabelecimentos reais na cidade selecionada. A ferramenta analisa instantaneamente se cada empresa possui site cadastrado e telefone para contato comercial.</span>
-    <span>Para usar em produção: configure sua chave em um arquivo <code>.env</code> na raiz do projeto como <code>GOOGLE_PLACES_API_KEY=sua_chave</code>.</span>
+<section class="card card-pad">
+    <form class="capture-form" id="captureForm">
+        <div class="field">
+            <label for="capNicho">Nicho</label>
+            <input id="capNicho" name="nicho" required placeholder="Ex.: barbearia" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="capCidade">Cidade</label>
+            <input id="capCidade" name="cidade" required placeholder="Ex.: Recife" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="capEstado">Estado</label>
+            <input id="capEstado" name="estado" maxlength="2" placeholder="UF" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="capLimite">Quantidade</label>
+            <input id="capLimite" name="limite" type="number" min="1" max="20" value="20" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" type="submit" id="captureSubmit" {% if not fonte_configurada %}disabled{% endif %}>Buscar empresas</button>
+    </form>
 </section>
 
-<section class="results-toolbar hidden" id="resultsToolbar">
-    <div>
-        <strong id="resultsCount">0 leads encontrados</strong>
-        <span id="resultsMessage" class="toolbar-sub"></span>
+<div class="notice hidden" id="captureStatus" role="status" aria-live="polite"></div>
+
+<section class="card" id="captureResults" hidden>
+    <div class="card-head capture-toolbar">
+        <div>
+            <h2 id="captureCount">Resultados</h2>
+            <p id="captureSelected">Nenhuma empresa selecionada</p>
+        </div>
+        <button class="btn btn-primary" type="button" id="captureAdd" disabled>Adicionar selecionados aos leads</button>
     </div>
-    <button class="secondary-button" type="button" id="saveAllLeads">💾 Importar Todos no CRM</button>
+    <div class="lv-table-wrap">
+        <table class="lv-table is-capture">
+            <thead>
+                <tr>
+                    <th class="col-check">
+                        <label class="check"><input type="checkbox" id="captureAll"><span class="all-label">Selecionar todos</span></label>
+                    </th>
+                    <th>Empresa</th><th>Telefone</th><th>Site</th><th>Avaliação</th>
+                </tr>
+            </thead>
+            <tbody id="captureBody"></tbody>
+        </table>
+    </div>
 </section>
 
-<section class="status-panel hidden" id="placesStatus"></section>
-
-<section class="lead-list" id="placesResults"></section>
+<section class="card" id="captureEmpty">
+    <div class="empty">
+        <h3>Nenhuma busca feita ainda</h3>
+        <p>Preencha nicho e cidade e clique em “Buscar empresas”. Os resultados aparecem aqui.</p>
+    </div>
+</section>
 {% endblock %}

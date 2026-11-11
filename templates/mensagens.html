@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Mensagens | Radar Local IA{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <h1>Mensagens</h1>
+        <p>Escreva a primeira abordagem dos leads aprovados, usando só o que o laudo verificou.</p>
+    </div>
+</header>
+
+{% if itens %}
+<div class="msg-layout" id="msgApp">
+    <section class="card" aria-labelledby="tituloAprovados">
+        <div class="card-head">
+            <h2 id="tituloAprovados">Leads aprovados</h2>
+            <p>{{ itens|length }}</p>
+        </div>
+        <ul class="msg-list">
+            {% for item in itens %}
+            <li>
+                <button type="button" class="msg-item" data-lead-id="{{ item.id }}">
+                    <span class="next-main">
+                        <strong>{{ item.nome }}</strong>
+                        <span>{{ item.nicho or 'Nicho não informado' }} · {{ item.cidade or 'Cidade não informada' }}</span>
+                    </span>
+                    <span class="badge{% if item.status == 'Mensagem enviada' %} good{% endif %}" data-msg-status>{{ 'Enviada' if item.status == 'Mensagem enviada' else 'Score ' ~ item.score }}</span>
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="card card-pad msg-editor" aria-live="polite">
+        <div>
+            <h2 id="msgNome"></h2>
+            <p class="muted" id="msgMeta"></p>
+        </div>
+
+        <div class="field">
+            <span class="label">Fatos do laudo</span>
+            <div class="badges" id="msgFatos"></div>
+        </div>
+
+        <fieldset class="field">
+            <legend class="label">Tom da mensagem</legend>
+            <div class="seg" id="msgTom">
+                <label><input type="radio" name="tom" value="direto" checked><span>Direto</span></label>
+                <label><input type="radio" name="tom" value="consultivo"><span>Consultivo</span></label>
+                <label><input type="radio" name="tom" value="descontraido"><span>Descontraído</span></label>
+            </div>
+        </fieldset>
+
+        <div class="field">
+            <label for="msgTexto">Mensagem</label>
+            <textarea id="msgTexto" rows="8"></textarea>
+        </div>
+
+        <div class="msg-actions">
+            <button type="button" class="btn" id="msgCopiar">{{ icon('clipboard', 16) }}<span>Copiar</span></button>
+            <a class="btn btn-primary" id="msgWhats" href="#" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}<span>Abrir WhatsApp</span></a>
+            <label class="check"><input type="checkbox" id="msgEnviada"><span>Marcar como mensagem enviada</span></label>
+        </div>
+    </section>
+</div>
+<script type="application/json" id="msgData">{{ itens|tojson }}</script>
+{% else %}
+<section class="card">
+    <div class="empty">
+        {% if total_com_laudo %}
+        <h3>Nenhum lead aprovado ainda</h3>
+        <p>Você tem {{ total_com_laudo }} {{ 'laudo' if total_com_laudo == 1 else 'laudos' }}, mas nenhum aprovou a abordagem. Revise os leads com ressalvas.</p>
+        <a class="btn" href="{{ url_for('leads_page', aprovacao='com_ressalvas') }}">Ver leads com ressalvas</a>
+        {% else %}
+        <h3>Nenhum laudo gerado ainda</h3>
+        <p>As mensagens são escritas a partir do laudo. Abra um lead e gere o laudo para começar.</p>
+        <a class="btn btn-primary" href="{{ url_for('leads_page') }}">Ir para Leads</a>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
