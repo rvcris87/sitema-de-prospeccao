@@ -1,41 +1,45 @@
-{# Conteúdo do painel lateral do lead. Renderizado por GET /api/leads/<id>. #}
+{# Conteúdo da gaveta do laudo. Renderizado por GET /api/leads/<id>. #}
 {% from "partials/macros.html" import score %}
 {% set p = detalhe.presenca %}
+{% set pode_abordar = lead._validado and detalhe.whatsapp_abordagem %}
 <div class="lv-drawer-inner" data-lead-id="{{ lead.id }}" data-validado="{{ 1 if lead._validado else 0 }}">
     <header class="lv-drawer-head">
         <h2 id="leadDrawerTitle">{{ lead.nome_empresa }}</h2>
         <p class="lv-drawer-meta">
             <span>{{ lead.nicho or 'Nicho não informado' }}</span>
             <span aria-hidden="true">·</span>
-            <span>{{ icon('map-pin', 14) }} {{ lead.cidade or 'Cidade não informada' }}</span>
+            <span>{{ lead.cidade or 'Cidade não informada' }}</span>
         </p>
         <div class="lv-drawer-kpis">
             <div class="lv-kpi">
-                <span class="lv-kpi-label">Score</span>
-                {{ score(lead, total=True, vazio="— não analisado") }}
+                <span class="label">Score</span>
+                {{ score(lead, total=True, vazio="Sem laudo") }}
             </div>
-            <label class="lv-kpi">
-                <span class="lv-kpi-label">Status do funil</span>
-                <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}">
+            <div class="lv-kpi">
+                <label class="label" for="drawerStatus{{ lead.id }}">Status</label>
+                <select class="crm-status-select status-inline" id="drawerStatus{{ lead.id }}" data-lead-id="{{ lead.id }}">
                     {% for option in status_options %}<option value="{{ option }}" {% if lead.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
                 </select>
-            </label>
+            </div>
         </div>
     </header>
 
-    <div class="lv-drawer-actions">
-        <button class="lv-btn lv-btn-primary js-drawer-validate" type="button">
-            {{ icon('refresh' if lead._validado else 'sparkles', 16) }}
-            <span>{{ 'Revalidar com IA' if lead._validado else 'Validar com IA' }}</span>
-        </button>
-        {% if detalhe.whatsapp_abordagem %}
-        <a class="lv-btn lv-btn-whats" href="{{ detalhe.whatsapp_abordagem }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}<span>Abrir WhatsApp</span></a>
+    {# Ação principal: no celular fica fixa no rodapé da gaveta. #}
+    <div class="drawer-cta">
+        {% if pode_abordar %}
+        <a class="btn btn-primary btn-block" href="{{ detalhe.whatsapp_abordagem }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}<span>Abrir WhatsApp</span></a>
         {% else %}
-        <span class="lv-btn lv-btn-ghost is-disabled" aria-disabled="true" title="Lead sem telefone">{{ icon('phone-off', 16) }}<span>Sem WhatsApp</span></span>
+        <button class="btn btn-primary btn-block js-drawer-validate" type="button">{{ icon('refresh', 16) }}<span>{{ 'Refazer laudo' if lead._validado else 'Gerar laudo' }}</span></button>
         {% endif %}
-        <a class="lv-btn lv-btn-ghost" href="{{ url_for('edit_lead', lead_id=lead.id) }}">{{ icon('edit', 16) }}<span>Editar</span></a>
+    </div>
+
+    <div class="lv-drawer-actions">
+        {% if pode_abordar %}
+        <button class="btn js-drawer-validate" type="button">{{ icon('refresh', 16) }}<span>Refazer laudo</span></button>
+        {% endif %}
+        <a class="btn" href="{{ url_for('edit_lead', lead_id=lead.id) }}">{{ icon('edit', 16) }}<span>Editar</span></a>
         <form method="post" action="{{ url_for('remove_lead', lead_id=lead.id) }}" class="delete-form">
-            <button class="lv-btn lv-btn-danger" type="submit">{{ icon('trash', 16) }}<span>Excluir</span></button>
+            <button class="btn btn-danger" type="submit">{{ icon('trash', 16) }}<span>Excluir</span></button>
         </form>
     </div>
 
@@ -67,9 +71,9 @@
         <h3>Diagnóstico</h3>
         <p class="lv-text">{{ lead._conclusao }}</p>
         {% if detalhe.proximo_passo %}
-        <p class="lv-next"><strong>Próximo passo:</strong> {{ detalhe.proximo_passo }}</p>
+        <p class="lv-text"><strong>Próximo passo:</strong> {{ detalhe.proximo_passo }}</p>
         {% endif %}
-        {% if detalhe.analisado_em %}<p class="lv-muted">Analisado em {{ detalhe.analisado_em }}</p>{% endif %}
+        {% if detalhe.analisado_em %}<p class="lv-muted">Laudo de {{ detalhe.analisado_em }}</p>{% endif %}
     </section>
 
     {% if detalhe.mensagem %}
@@ -88,7 +92,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="lv-muted">{{ 'Nenhuma fonte registrada no laudo.' if lead._validado else 'Valide o lead com IA para ver as fontes consultadas.' }}</p>
+        <p class="lv-muted">{{ 'Nenhuma fonte registrada no laudo.' if lead._validado else 'Gere o laudo para ver as fontes consultadas.' }}</p>
         {% endif %}
     </section>
 </div>

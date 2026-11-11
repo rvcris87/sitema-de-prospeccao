@@ -29,10 +29,8 @@ ROTAS_LOGADAS = [
     "/leads",
     "/leads?status=Novo",
     "/leads?q=a&cidade=xyz",
-    "/laudos",
+    "/leads?aprovacao=sim",
     "/mensagens",
-    "/oportunidades",
-    "/insights",
     "/configuracoes",
     "/buscar-leads",
     "/capturar-leads",
@@ -43,6 +41,13 @@ ROTAS_LOGADAS = [
 ]
 
 ROTAS_PUBLICAS = ["/login", "/cadastro", "/health"]
+
+# Etapa 2.3: rotas antigas continuam existindo, mas só redirecionam.
+ROTAS_REDIRECIONADAS = {
+    "/laudos": "/leads?aprovacao=sim",
+    "/oportunidades": "/leads",
+    "/insights": "/app",  # url_for("dashboard") resolve para /app
+}
 
 
 class TestRotas(unittest.TestCase):
@@ -74,6 +79,24 @@ class TestRotas(unittest.TestCase):
                 with self.subTest(rota=rota, rodada=rodada + 1):
                     resposta = client.get(rota)
                     self.assertEqual(resposta.status_code, 200, f"{rota} -> {resposta.status_code}")
+
+    def test_rotas_antigas_redirecionam(self):
+        client = self.logado()
+        for rota, destino in ROTAS_REDIRECIONADAS.items():
+            with self.subTest(rota=rota):
+                resposta = client.get(rota)
+                self.assertEqual(resposta.status_code, 302)
+                self.assertTrue(resposta.headers["Location"].endswith(destino), resposta.headers["Location"])
+
+    def test_menu_enxuto_e_sem_demo(self):
+        client = self.app.test_client()
+        for rota in ("/", "/login"):
+            with self.subTest(rota=rota):
+                self.assertNotIn("demo-login", client.get(rota).get_data(as_text=True))
+        html = self.logado().get("/dashboard").get_data(as_text=True)
+        for rota in ROTAS_REDIRECIONADAS:
+            with self.subTest(rota=rota):
+                self.assertNotIn(f'href="{rota}"', html)
 
     def test_rotas_do_lead(self):
         client = self.logado()

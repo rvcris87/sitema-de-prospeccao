@@ -34,7 +34,7 @@ try:
         whatsapp_link,
         get_connection,
     )
-    from google_places import normalize_limit, search_google_places
+    from google_places import get_google_places_api_key, normalize_limit, search_google_places
     from ia_real_service import execute_real_ai_analysis, get_current_limit_info
 except Exception as exc:
     BOOT_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
@@ -90,6 +90,7 @@ def utility_processor():
         "whatsapp_link": whatsapp_link,
         "icon": icon,
         "current_user": current_user,
+        "montar_presenca": montar_presenca,
     }
 
 
@@ -603,6 +604,67 @@ def montar_detalhe(lead):
     }
 
 
+def get_funil(all_leads):
+    """Quantidade de leads em cada status do funil, com percentual sobre o total."""
+    contagem = Counter(lead.get("status") or "" for lead in all_leads)
+    total = len(all_leads)
+    return [
+        {"status": status, "total": contagem.get(status, 0), "pct": percentual(contagem.get(status, 0), total)}
+        for status in STATUS_OPTIONS
+    ]
+
+
+def proximos_para_abordar(all_leads, limite=5):
+    """Leads aprovados pelo laudo que ainda não receberam mensagem, maior score primeiro."""
+    prontos = [
+        lead for lead in all_leads
+        if lead.get("_status_geral") == "Aprovado" and lead.get("status") in ("Novo", "Analisado")
+    ]
+    return sorted(prontos, key=lambda l: (-l.get("_score", 0), l.get("id") or 0))[:limite]
+
+
+def fatos_do_laudo(lead):
+    """Fatos verificados no laudo, usados como badges e como base da mensagem (nada inventado)."""
+    laudo = lead.get("_laudo") or {}
+    fatos = []
+    tipo = lead.get("_site_tipo")
+    if tipo in SITE_TIPOS_SEM_SITE:
+        fatos.append({"chave": "sem_site", "rotulo": "Sem site próprio", "nivel": "bad"})
+    elif tipo in ("site_terceirizado", "cardapio_plataforma_externa", "generico"):
+        fatos.append({"chave": "site_terceirizado", "rotulo": "Site terceirizado", "nivel": "warn"})
+    elif tipo in ("site_proprio", "proprio"):
+        fatos.append({"chave": "site_proprio", "rotulo": "Site próprio", "nivel": "good"})
+
+    compat = lead.get("_whatsapp_compat")
+    if compat == "compativel":
+        fatos.append({"chave": "whatsapp_ok", "rotulo": "WhatsApp compatível", "nivel": "good"})
+    elif compat == "divergente":
+        fatos.append({"chave": "whatsapp_divergente", "rotulo": "WhatsApp divergente", "nivel": "bad"})
+    else:
+        fatos.append({"chave": "whatsapp_incerto", "rotulo": "WhatsApp incerto", "nivel": "warn"})
+
+    if lead.get("_instagram_encontrado") == "sim":
+        fatos.append({"chave": "instagram_ok", "rotulo": "Instagram encontrado", "nivel": "good"})
+    elif lead.get("_instagram_encontrado") == "nao":
+        fatos.append({"chave": "instagram_ausente", "rotulo": "Instagram não encontrado", "nivel": "bad"})
+
+    if laudo.get("instagram_tipo_link_bio") == "linktree_ou_similar":
+        fatos.append({"chave": "bio_agregador", "rotulo": "Bio com agregador de links", "nivel": "warn"})
+    elif laudo.get("instagram_tipo_link_bio") == "whatsapp_direto":
+        fatos.append({"chave": "bio_whatsapp", "rotulo": "Bio leva direto ao WhatsApp", "nivel": "warn"})
+    return fatos
+
+
+def fontes_de_captura():
+    """Só informa se cada fonte está configurada; nunca devolve a chave."""
+    google_places = bool(get_google_places_api_key())
+    token_apify = os.getenv("APIFY_API_TOKEN", "").strip()
+    return {
+        "google_places": google_places,
+        "apify": bool(token_apify) and token_apify != "sua_chave_aqui",
+    }
+
+
 def render_lead_row(lead):
     return render_template("partials/lead_rows.html", leads=[lead], status_options=STATUS_OPTIONS)
 
@@ -620,8 +682,8 @@ def dashboard():
         metrics=metrics,
         cidades=get_prioridade_por_cidade(all_leads),
         insights=gerar_insights(all_leads, metrics),
-        leads_recentes=leads_recentes(all_leads),
-        laudos_recentes=laudos_recentes(all_leads),
+        funil=get_funil(all_leads),
+        proximos=proximos_para_abordar(all_leads),
         status_options=STATUS_OPTIONS,
     )
 
@@ -656,7 +718,11 @@ def new_lead():
 @app.route("/buscar-leads")
 @login_required
 def buscar_leads():
-    return render_template("buscar_leads.html", active_page="capturar")
+    return render_template(
+        "buscar_leads.html",
+        active_page="capturar",
+        fonte_configurada=fontes_de_captura()["google_places"],
+    )
 
 
 @app.route("/leads")
@@ -722,12 +788,8 @@ def api_get_lead(lead_id):
 @app.route("/laudos")
 @login_required
 def laudos_page():
-    return render_template(
-        "laudos.html",
-        active_page="laudos",
-        leads=get_leads_filtrados(),
-        filter_options=get_filter_options(),
-    )
+    # Etapa 2.3: os laudos vivem no painel lateral do lead; a rota antiga leva aos aprovados.
+    return redirect(url_for("leads_page", aprovacao="sim"))
 
 
 @app.route("/mensagens")
@@ -736,10 +798,25 @@ def mensagens_page():
     leads = get_leads_filtrados()
     com_laudo = [lead for lead in leads if lead.get("_validado")]
     aprovados = [lead for lead in com_laudo if lead.get("_status_geral") == "Aprovado"]
+    aprovados.sort(key=lambda l: (-l.get("_score", 0), l.get("id") or 0))
+    itens = [
+        {
+            "id": lead["id"],
+            "nome": lead.get("nome_empresa") or "",
+            "nicho": lead.get("nicho") or "",
+            "cidade": lead.get("cidade") or "",
+            "score": lead.get("_score", 0),
+            "status": lead.get("status") or "",
+            "whatsapp": whatsapp_link(lead.get("telefone_whatsapp")) or "",
+            "fatos": fatos_do_laudo(lead),
+        }
+        for lead in aprovados
+    ]
     return render_template(
         "mensagens.html",
         active_page="mensagens",
         leads=leads,
+        itens=itens,
         total_com_laudo=len(com_laudo),
         total_aprovados=len(aprovados),
     )
@@ -748,26 +825,26 @@ def mensagens_page():
 @app.route("/oportunidades")
 @login_required
 def oportunidades_page():
-    return render_template("oportunidades.html", active_page="oportunidades", leads=get_leads_filtrados())
+    return redirect(url_for("leads_page"))
 
 
 @app.route("/insights")
 @login_required
 def insights_page():
-    all_leads = [processar_lead(row) for row in list_leads()]
-    metrics = get_metrics(all_leads)
-    return render_template(
-        "insights.html",
-        active_page="insights",
-        insights=gerar_insights(all_leads, metrics),
-        metrics=metrics,
-    )
+    # Etapa 2.3: os insights viraram um bloco da Visão geral.
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/configuracoes")
 @login_required
 def configuracoes_page():
-    return render_template("configuracoes.html", active_page="configuracoes")
+    usadas, limite = get_current_limit_info()
+    return render_template(
+        "configuracoes.html",
+        active_page="configuracoes",
+        fontes=fontes_de_captura(),
+        analises={"usadas": usadas, "limite": limite, "pct": min(percentual(usadas, limite), 100)},
+    )
 
 
 @app.route("/importar-apify", methods=["GET", "POST"])

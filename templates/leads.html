@@ -3,60 +3,70 @@
 {% block title %}Leads | Radar Local IA{% endblock %}
 
 {% block content %}
-<div class="leads-v2">
-    <header class="lv-header">
-        <div>
-            <p class="eyebrow">Funil Comercial</p>
-            <h1>Leads</h1>
-            <p>Escolha quem abordar primeiro. Clique em um lead para ver a presença digital e o diagnóstico.</p>
-        </div>
-        <a class="lv-btn lv-btn-primary" href="{{ url_for('new_lead') }}">{{ icon('plus', 16) }}<span>Novo lead</span></a>
-    </header>
+<header class="page-head">
+    <div>
+        <h1>Leads</h1>
+        <p>Clique em um lead para abrir o laudo e decidir a abordagem.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" href="{{ url_for('new_lead') }}">{{ icon('plus', 16) }}<span>Novo lead</span></a>
+        <a class="btn btn-primary" href="{{ url_for('buscar_leads') }}">Capturar leads</a>
+    </div>
+</header>
 
-    <section class="lv-card">
-        <form class="lv-filters" method="get" id="leadsFilterForm" data-api-url="{{ url_for('api_list_leads') }}" role="search">
-            <label class="lv-search">
-                {{ icon('search', 16) }}
-                <input type="search" name="q" value="{{ filters.q }}" placeholder="Buscar por nome da empresa" autocomplete="off" aria-label="Buscar por nome">
-            </label>
-            <select name="status" aria-label="Status do funil">
-                <option value="">Todos os status</option>
+<div class="lv-chips" id="leadsStatusChips" role="group" aria-label="Filtrar por status do funil"></div>
+<script type="application/json" id="leadsInitialCounts">{{ contagens|tojson }}</script>
+
+<section class="card">
+    <form class="lv-filters" method="get" id="leadsFilterForm" data-api-url="{{ url_for('api_list_leads') }}" role="search">
+        <div class="field">
+            <label for="filtroBusca">Buscar</label>
+            <input type="search" id="filtroBusca" name="q" value="{{ filters.q }}" placeholder="Nome da empresa" autocomplete="off">
+        </div>
+        <div class="field">
+            <label for="filtroStatus">Status</label>
+            <select id="filtroStatus" name="status">
+                <option value="">Todos</option>
                 {% for option in status_options %}<option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
             </select>
-            <select name="nicho" aria-label="Nicho">
-                <option value="">Todos os nichos</option>
+        </div>
+        <div class="field">
+            <label for="filtroNicho">Nicho</label>
+            <select id="filtroNicho" name="nicho">
+                <option value="">Todos</option>
                 {% for option in filter_options.nichos %}<option value="{{ option }}" {% if filters.nicho == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
             </select>
-            <select name="cidade" aria-label="Cidade">
-                <option value="">Todas as cidades</option>
+        </div>
+        <div class="field">
+            <label for="filtroCidade">Cidade</label>
+            <select id="filtroCidade" name="cidade">
+                <option value="">Todas</option>
                 {% for option in filter_options.cidades %}<option value="{{ option }}" {% if filters.cidade == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
             </select>
-            <select name="aprovacao" aria-label="Aprovação do laudo">
-                <option value="">Qualquer aprovação</option>
+        </div>
+        <div class="field">
+            <label for="filtroAprovacao">Laudo</label>
+            <select id="filtroAprovacao" name="aprovacao">
+                <option value="">Todos</option>
                 <option value="sim" {% if filters.aprovacao == 'sim' %}selected{% endif %}>Aprovados</option>
                 <option value="com_ressalvas" {% if filters.aprovacao == 'com_ressalvas' %}selected{% endif %}>Com ressalvas</option>
             </select>
-            <a class="lv-link" href="{{ url_for('leads_page') }}" data-clear-filters>Limpar</a>
-            <noscript><button class="lv-btn lv-btn-ghost" type="submit">Filtrar</button></noscript>
-        </form>
-
-        <div class="lv-chips" id="leadsStatusChips" role="group" aria-label="Filtrar por status do funil"></div>
-        <script type="application/json" id="leadsInitialCounts">{{ contagens|tojson }}</script>
-
-        <div class="lv-table-wrap">
-            <table class="lv-table">
-                <thead>
-                    <tr>
-                        <th>Empresa</th><th>Cidade</th><th>Score</th><th>Status do funil</th><th class="col-acao">Ação</th>
-                    </tr>
-                </thead>
-                <tbody id="leadsTableBody">
-                    {% include "partials/lead_rows.html" %}
-                </tbody>
-            </table>
         </div>
-    </section>
-</div>
+        <a class="btn" href="{{ url_for('leads_page') }}" data-clear-filters>Limpar</a>
+        <noscript><button class="btn" type="submit">Filtrar</button></noscript>
+    </form>
+
+    <div class="lv-table-wrap">
+        <table class="lv-table is-cards">
+            <thead>
+                <tr><th>Empresa</th><th>Nicho / Cidade</th><th>Score</th><th>Status</th><th>Presença digital</th></tr>
+            </thead>
+            <tbody id="leadsTableBody">
+                {% include "partials/lead_rows.html" %}
+            </tbody>
+        </table>
+    </div>
+</section>
 
 {% include "partials/lead_drawer_shell.html" %}
 {% endblock %}

@@ -4,337 +4,63 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Radar Local IA{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='20261103e') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    {% include "partials/head.html" %}
 </head>
-<body class="dashboard-body">
-    <aside class="sidebar">
-        <a class="brand" href="{{ url_for('index') }}">
-            <span class="brand-mark">{{ icon('target') }}</span>
-            <span>
-                <strong>Radar Local IA</strong>
-                <small>LEAD INTELLIGENCE</small>
-            </span>
-        </a>
+<body class="app">
+    <header class="topbar">
+        <a class="brand-mark" href="{{ url_for('dashboard') }}">{{ icon('radar', 20) }}<span>Radar Local IA</span></a>
+        <button type="button" class="icon-btn" id="menuToggle" aria-label="Abrir menu" aria-controls="sideMenu" aria-expanded="false">{{ icon('menu', 22) }}</button>
+    </header>
 
-        <nav class="nav">
-            <a href="{{ url_for('dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('chart') }}</span> Dashboard
+    <aside class="side" id="sideMenu" aria-label="Menu principal">
+        <a class="side-brand" href="{{ url_for('dashboard') }}">{{ icon('radar', 20) }}<span>Radar Local IA</span></a>
+
+        <nav class="side-nav">
+            {% for pagina, endpoint, rotulo, ic in [
+                ('dashboard', 'dashboard', 'Visão geral', 'chart'),
+                ('leads', 'leads_page', 'Leads', 'users'),
+                ('capturar', 'buscar_leads', 'Capturar leads', 'target'),
+                ('mensagens', 'mensagens_page', 'Mensagens', 'message'),
+                ('configuracoes', 'configuracoes_page', 'Configurações', 'settings'),
+            ] %}
+            <a href="{{ url_for(endpoint) }}" class="side-link{% if active_page == pagina %} is-active{% endif %}"{% if active_page == pagina %} aria-current="page"{% endif %}>
+                {{ icon(ic) }}<span>{{ rotulo }}</span>
             </a>
-            <a href="{{ url_for('leads_page') }}" class="nav-link {% if active_page == 'leads' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('users') }}</span> Leads
-            </a>
-            <a href="{{ url_for('buscar_leads') }}" class="nav-link {% if active_page == 'capturar' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('target') }}</span> Capturar Leads
-            </a>
-            <a href="{{ url_for('laudos_page') }}" class="nav-link {% if active_page == 'laudos' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('file') }}</span> Laudos
-            </a>
-            <a href="{{ url_for('mensagens_page') }}" class="nav-link {% if active_page == 'mensagens' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('message') }}</span> Mensagens
-            </a>
-            <a href="{{ url_for('oportunidades_page') }}" class="nav-link {% if active_page == 'oportunidades' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('magnet') }}</span> Oportunidades
-            </a>
-            <a href="{{ url_for('insights_page') }}" class="nav-link {% if active_page == 'insights' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('sparkles') }}</span> Insights da IA
-            </a>
-            <a href="{{ url_for('configuracoes_page') }}" class="nav-link {% if active_page == 'configuracoes' %}active{% endif %}">
-                <span class="nav-icon">{{ icon('settings') }}</span> Configurações
-            </a>
-            <a href="{{ url_for('logout') }}" class="nav-link">
-                <span class="nav-icon">{{ icon('logout') }}</span> Sair
-            </a>
+            {% endfor %}
         </nav>
 
-        <section class="sidebar-value-card">
-            <p>IA que valida.</p>
-            <p>Você vende melhor.</p>
-            <p>Menos tentativa.</p>
-            <p>Mais oportunidade real.</p>
-        </section>
-
-        <div class="sidebar-footer">
-            <div class="user-profile">
-                <div class="avatar">{{ (current_user.nome or 'U')[:1]|upper }}</div>
-                <div class="user-info">
-                    <strong>{{ current_user.nome }}</strong>
-                    <span>{{ current_user.plano }}</span>
-                </div>
+        <div class="side-foot">
+            <span class="avatar" aria-hidden="true">{{ (current_user.nome or 'U')[:1]|upper }}</span>
+            <div class="side-user">
+                <strong>{{ current_user.nome }}</strong>
+                <span>{{ current_user.plano }}</span>
             </div>
-            <a href="{{ url_for('new_lead') }}" class="btn-logout">{{ icon('plus') }} Novo lead</a>
+            <a class="icon-btn" href="{{ url_for('logout') }}" aria-label="Sair da conta" title="Sair">{{ icon('logout') }}</a>
         </div>
     </aside>
+    <div class="menu-backdrop" id="menuBackdrop" hidden></div>
 
     <main class="main">
-        <button type="button" class="mobile-sidebar-toggle" id="mobileSidebarToggle">{{ icon('menu') }} Menu</button>
-        <header class="main-header">
-            <div class="main-header-actions">
-                <div class="profile-pill">
-                    <span class="avatar avatar-sm">{{ (current_user.nome or 'U')[:2]|upper }}</span>
-                    <div class="profile-info">
-                        <strong>{{ current_user.nome }}</strong>
-                        <span>{{ current_user.plano }}</span>
+        <div class="main-inner">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-list" role="status">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">
+                                <span>{{ message }}</span>
+                                <button type="button" class="icon-btn js-flash-close" aria-label="Fechar aviso">{{ icon('x', 16) }}</button>
+                            </div>
+                        {% endfor %}
                     </div>
-                </div>
-            </div>
-        </header>
+                {% endif %}
+            {% endwith %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-list">
-                    {% for category, message in messages %}
-                        <div class="flash {{ category }}">
-                            <span class="flash-close" onclick="this.parentElement.remove()">×</span>
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
-        {% block content %}{% endblock %}
+            {% block content %}{% endblock %}
+        </div>
     </main>
 
-    <!-- AI Analysis Modal -->
-    <div id="aiModal" class="modal-overlay hidden">
-        <div class="glass-card modal-card">
-            <div class="modal-header">
-                <h3>{{ icon('wand') }} Laudo do Lead</h3>
-                <button type="button" class="modal-close" id="closeAiModal">×</button>
-            </div>
-            
-            <div class="modal-body">
-                <!-- Analyzing Animation -->
-                <div id="aiLoading" class="ai-loading-container hidden">
-                    <div class="radar-scan">
-                        <div class="scan-line"></div>
-                    </div>
-                    <div class="loading-steps">
-                        <p class="step active" data-step="1">{{ icon('radar') }} Iniciando verificação do lead...</p>
-                        <p class="step" data-step="2">{{ icon('search') }} Validando presença digital...</p>
-                        <p class="step" data-step="3">{{ icon('chart') }} Classificando qualidade do lead...</p>
-                        <p class="step" data-step="4">{{ icon('edit') }} Gerando abordagem baseada no laudo...</p>
-                    </div>
-                </div>
+    <div id="toastNotification" class="toast hidden" role="status" aria-live="polite"></div>
 
-                <!-- Analysis Results -->
-                <div id="aiResults" class="ai-results-container">
-                    <div class="ai-meta-row">
-                        <div>
-                            <span class="meta-label">EMPRESA</span>
-                            <h4 id="aiLeadName">Nome da Empresa</h4>
-                        </div>
-                        <div>
-                            <span class="meta-label">POTENCIAL</span>
-                            <span id="aiPotentialBadge" class="potential-badge high">Alto</span>
-                        </div>
-                    </div>
-
-                    <div class="analysis-section">
-                        <h5>Motivo da Oportunidade</h5>
-                        <p id="aiReasonText">O motivo detalhado será gerado aqui pela inteligência artificial...</p>
-                    </div>
-
-                    <div class="analysis-section">
-                        <h5>Abordagem sugerida com base no laudo</h5>
-                        <div class="message-container">
-                            <textarea id="aiMessageText" readonly class="ai-message-textarea"></textarea>
-                            <div class="message-actions">
-                                <button type="button" class="btn btn-outline btn-small" id="copyAiMessage">
-                                    {{ icon('clipboard') }} Copiar Texto
-                                </button>
-                                <a href="#" target="_blank" rel="noreferrer" class="btn btn-primary btn-small" id="sendAiWhatsapp">
-                                    {{ icon('message') }} Enviar WhatsApp
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-        <!-- Real AI Analysis Modal -->
-    <div id="realAiModal" class="modal-overlay hidden">
-        <div class="glass-card modal-card real-ai-modal-card">
-            <div class="modal-header">
-                <h3>{{ icon('clipboard') }} Laudo do Lead - Verificação Inteligente</h3>
-                <button type="button" class="modal-close" id="closeRealAiModal">×</button>
-            </div>
-
-            <div class="modal-body">
-                <div id="realAiLoading" class="ai-loading-container hidden">
-                    <div class="radar-scan real-scan">
-                        <div class="scan-line"></div>
-                    </div>
-                    <div class="loading-steps">
-                        <p class="step active" data-step="1">{{ icon('globe') }} Iniciando pesquisa web em tempo real...</p>
-                        <p class="step" data-step="2">{{ icon('search') }} Validando sinais de atividade pública...</p>
-                        <p class="step" data-step="3">{{ icon('phone') }} Verificando compatibilidade de WhatsApp...</p>
-                        <p class="step" data-step="4">{{ icon('clipboard') }} Montando laudo de qualidade do lead...</p>
-                    </div>
-                </div>
-
-                <div id="realAiConnectionIssue" class="analysis-section hidden connection-issue">
-                    <h5>IA indisponível neste ambiente</h5>
-                    <p>Não foi possível conectar à OpenAI neste ambiente. Verifique firewall, antivírus, proxy ou rode o app em ambiente com acesso externo.</p>
-                    <button type="button" class="btn btn-outline btn-small" id="runLocalFallbackBtn">Usar análise demonstrativa/local</button>
-                </div>
-
-                <div id="realAiResults" class="ai-results-container">
-                    <div class="ai-meta-row real-ai-header-badge">
-                        <div>
-                            <span class="meta-label">VERIFICAÇÃO INTELIGENTE DO LEAD</span>
-                            <h4 id="realAiLeadName">Nome da Empresa</h4>
-                            <p id="realAiLeadMeta" class="real-ai-meta">Cidade/Nicho</p>
-                            <span class="real-ai-date" id="realAiDate">Analisado em: --/--/----</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="badge-real-ai">Qualidade do Lead</span>
-                            <div class="score-container laudo-score-container">
-                                <span class="score-label">Score do Lead</span>
-                                <strong id="realAiScore">—</strong>
-                            </div>
-                            <div class="laudo-top-badges">
-                                <span id="realAiDecisionBadge" class="badge warn">Validar melhor</span>
-                                <span id="realAiPriorityBadge" class="badge neutral">Prioridade média</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="realAiBadges" class="laudo-badges"></div>
-
-                    <div class="laudo-grid laudo-grid-refined">
-                        <div class="laudo-card laudo-card-resumo">
-                            <h5>Resumo executivo</h5>
-                            <p id="realAiResumoCurto" class="laudo-note">Sem resumo disponível.</p>
-                            <div class="laudo-list">
-                                <div><span>Recomendação</span><strong id="realAiResumoAcao">Investigar melhor</strong></div>
-                            </div>
-                        </div>
-
-                        <div class="laudo-card">
-                            <h5>Verificação da empresa</h5>
-                            <div class="laudo-list">
-                                <div><span>Empresa encontrada</span><strong id="realAiExiste">Incerto</strong></div>
-                                <div><span>Sinais de atividade</span><strong id="realAiAtividade">Incerto</strong></div>
-                                <div><span>Status provável</span><strong id="realAiStatusProvavel">Incerto</strong></div>
-                                <div><span>Confiança da verificação</span><strong id="realAiConfianca">0/100</strong></div>
-                            </div>
-                        </div>
-
-                        <div class="laudo-card">
-                            <h5>Verificação do WhatsApp</h5>
-                            <div class="laudo-list">
-                                <div><span>Número informado</span><strong id="realAiWhatsLead">-</strong></div>
-                                <div><span>Número no Instagram</span><strong id="realAiWhatsInsta">-</strong></div>
-                                <div><span>Número no site</span><strong id="realAiWhatsSite">-</strong></div>
-                                <div><span>Número em wa.me</span><strong id="realAiWhatsWaMe">-</strong></div>
-                                <div><span>Compatibilidade</span><strong id="realAiWhatsCompat">Incerto</strong></div>
-                                <div><span>Confiança</span><strong id="realAiWhatsConfianca">Baixa</strong></div>
-                            </div>
-                            <p id="realAiWhatsObs" class="laudo-note"></p>
-                        </div>
-
-                        <div class="laudo-card">
-                            <h5>Presença digital</h5>
-                            <div class="laudo-list">
-                                <div><span>Instagram encontrado</span><strong id="realAiInstagramEncontrado">Incerto</strong></div>
-                                <div><span>Bio com link</span><strong id="realAiInstagramLink">Incerto</strong></div>
-                                <div><span>Tipo do link</span><strong id="realAiInstagramTipoLink">Não identificado</strong></div>
-                            </div>
-                            <p id="realAiInstagramObs" class="laudo-note"></p>
-                        </div>
-
-                        <div class="laudo-card">
-                            <h5>Verificação do site</h5>
-                            <div class="laudo-list">
-                                <div><span>Site encontrado</span><strong id="realAiSiteEncontrado">Incerto</strong></div>
-                                <div><span>Tipo de site</span><strong id="realAiTipoSite">Incerto</strong></div>
-                                <div><span>Qualidade percebida</span><strong id="realAiQualidadeSite">Incerta</strong></div>
-                            </div>
-                            <p id="realAiMotivoSite" class="laudo-note"></p>
-                        </div>
-
-                        <div class="laudo-card laudo-card-oportunidade">
-                            <h5>Oportunidade comercial</h5>
-                            <div class="analysis-section">
-                                <p id="realAiReasonText">Diagnóstico comercial detalhado...</p>
-                            </div>
-                            <div class="analysis-section-row laudo-two-col">
-                                <div class="sec-half">
-                                    <h6>Problema detectado</h6>
-                                    <p id="realAiProblema"></p>
-                                </div>
-                                <div class="sec-half">
-                                    <h6>Oferta recomendada</h6>
-                                    <p id="realAiOferta"></p>
-                                </div>
-                            </div>
-                            <div class="analysis-section-row laudo-two-col">
-                                <div class="sec-half">
-                                    <h6>Faixa de preço</h6>
-                                    <p id="realAiPreco"></p>
-                                </div>
-                                <div class="sec-half">
-                                    <h6>Potencial</h6>
-                                    <span id="realAiPotentialBadge" class="potential-badge">Médio</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="laudo-card">
-                            <h5>Decisão final</h5>
-                            <div class="laudo-list">
-                                <div><span>Lead aprovado</span><strong id="realAiAprovado">Com ressalvas</strong></div>
-                                <div><span>Prioridade</span><strong id="realAiPrioridade">Média</strong></div>
-                                <div><span>Motivo da prioridade</span><strong id="realAiMotivoPrioridade">-</strong></div>
-                                <div><span>Próximo passo</span><strong id="realAiProximoPasso">-</strong></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="analysis-section analysis-section-message">
-                        <h5>Mensagem sugerida</h5>
-                        <div class="message-container">
-                            <textarea id="realAiMessageText" readonly class="ai-message-textarea"></textarea>
-                            <div class="message-actions">
-                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiSummary">{{ icon('clipboard') }} Copiar resumo do laudo</button>
-                                <button type="button" class="btn btn-outline btn-small" id="copyRealAiMessage">{{ icon('message') }} Copiar mensagem de abordagem</button>
-                                <button type="button" class="btn btn-secondary btn-small" id="regenerateApproachBtn">{{ icon('refresh') }} Gerar nova abordagem</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="analysis-section" id="realAiSourcesSection">
-                        <h5>Fontes e referências encontradas</h5>
-                        <ul class="sources-list" id="realAiSourcesList"></ul>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer real-ai-footer">
-                <button type="button" class="btn btn-primary btn-small" id="reanalyzeRealAiBtn">{{ icon('refresh') }} Verificar lead com IA novamente</button>
-                <button type="button" class="btn btn-outline btn-small" id="closeRealAiModalFooter">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toastNotification" class="toast hidden">Status atualizado!</div>
-
-    <script src="{{ url_for('static', filename='js/app.js', v='20261103e') }}"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            var toggle = document.getElementById("mobileSidebarToggle");
-            var body = document.body;
-            if (!toggle) return;
-            toggle.addEventListener("click", function () {
-                body.classList.toggle("sidebar-open");
-            });
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/app.js', v='20261110a') }}"></script>
 </body>
 </html>
-

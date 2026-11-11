@@ -1,39 +1,37 @@
-{# Linhas da tabela de leads. Usado por leads.html, index.html e pelas APIs (/api/leads, status, detalhe). #}
+{# Linhas da tabela de leads. Usado por leads.html e pelas APIs (/api/leads, status, detalhe). #}
 {% from "partials/macros.html" import score %}
 {% for lead in leads %}
-<tr class="lead-row" data-lead-id="{{ lead.id }}" data-status="{{ lead.status or '' }}" tabindex="0" aria-label="Abrir detalhes de {{ lead.nome_empresa }}">
-    <td class="col-empresa">
-        <span class="lead-name">{{ lead.nome_empresa }}</span>
-        <span class="lead-sub">{{ lead.nicho or 'Nicho não informado' }}</span>
+{% set p = montar_presenca(lead) %}
+<tr class="lead-row" data-lead-id="{{ lead.id }}" data-status="{{ lead.status or '' }}" tabindex="0" aria-label="Abrir laudo de {{ lead.nome_empresa }}">
+    <td class="col-empresa"><span class="lead-name">{{ lead.nome_empresa }}</span></td>
+    <td class="col-nicho">
+        <span>{{ lead.nicho or 'Nicho não informado' }}</span>
+        <span class="lead-sub">{{ lead.cidade or 'Cidade não informada' }}</span>
     </td>
-    <td class="col-cidade">{{ lead.cidade or '—' }}</td>
     <td class="col-score">{{ score(lead) }}</td>
     <td class="col-status">
-        <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}" aria-label="Status do funil de {{ lead.nome_empresa }}">
+        <select class="crm-status-select status-inline" data-lead-id="{{ lead.id }}" aria-label="Status de {{ lead.nome_empresa }}">
             {% for option in status_options %}<option value="{{ option }}" {% if lead.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
         </select>
     </td>
-    <td class="col-acao">
-        {% if not lead._validado %}
-        <button class="lv-btn lv-btn-soft js-validate-lead" type="button">{{ icon('sparkles', 15) }}<span>Validar</span></button>
-        {% elif lead.telefone_whatsapp %}
-        <a class="lv-btn lv-btn-soft" href="{{ whatsapp_link(lead.telefone_whatsapp) }}" target="_blank" rel="noopener">{{ icon('whatsapp', 15) }}<span>WhatsApp</span></a>
-        {% else %}
-        <button class="lv-btn lv-btn-ghost js-open-lead" type="button"><span>Ver lead</span></button>
-        {% endif %}
+    <td class="col-presenca">
+        <span class="badges">
+            {% for chave, rotulo in [('whatsapp', 'WhatsApp'), ('instagram', 'Instagram'), ('site', 'Site')] %}
+            <span class="selo selo-{{ p[chave].nivel }}" title="{{ rotulo }}: {{ p[chave].rotulo }}">{{ rotulo }}<span class="sr-only">: {{ p[chave].rotulo }}</span></span>
+            {% endfor %}
+        </span>
     </td>
 </tr>
 {% else %}
 <tr class="lead-row-empty"><td colspan="5">
-    <div class="lv-empty">
-        <span class="lv-empty-icon">{{ icon('search' if filtrado else 'compass', 26) }}</span>
+    <div class="empty">
         {% if filtrado %}
         <h3>Nenhum lead com esses filtros</h3>
         <p>Ajuste a busca ou limpe os filtros para ver todos os leads.</p>
         {% else %}
         <h3>Nenhum lead cadastrado ainda</h3>
         <p>Capture ou cadastre seu primeiro lead para gerar um laudo.</p>
-        <a href="{{ url_for('buscar_leads') }}" class="lv-btn lv-btn-primary">Capturar leads</a>
+        <a href="{{ url_for('buscar_leads') }}" class="btn btn-primary">Capturar leads</a>
         {% endif %}
     </div>
 </td></tr>

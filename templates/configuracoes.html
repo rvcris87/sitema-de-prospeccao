@@ -2,60 +2,78 @@
 
 {% block title %}Configurações | Radar Local IA{% endblock %}
 
+{% macro estado(configurada) -%}
+<span class="badge {{ 'good' if configurada else 'warn' }}">{{ 'Configurada' if configurada else 'Não configurada' }}</span>
+{%- endmacro %}
+
 {% block content %}
-<section class="page-header">
+<header class="page-head">
     <div>
-        <p class="eyebrow">Conta e Operação</p>
         <h1>Configurações</h1>
-        <p class="subtitle">Gerencie dados de usuário, plano e preferências da sua operação.</p>
+        <p>Sua conta, as fontes de captura e o uso das análises.</p>
     </div>
-</section>
+</header>
 
-<section class="panel">
-    <div class="settings-grid">
-        <article class="settings-card">
-            <h3>Perfil</h3>
-            <p>Dados principais de identificação do usuário.</p>
-            <label>Nome<input type="text" value="{{ current_user.nome }}" readonly></label>
-            <label>E-mail<input type="email" value="{{ current_user.email }}" readonly></label>
-        </article>
+<div class="settings">
+    <section class="card" aria-labelledby="cfgConta">
+        <div class="card-head"><h2 id="cfgConta">Conta</h2></div>
+        <div class="card-body">
+            <dl class="kv">
+                <dt>Nome</dt><dd>{{ current_user.nome }}</dd>
+                <dt>E-mail</dt><dd>{{ current_user.email }}</dd>
+                <dt>Plano</dt><dd>{{ current_user.plano }}</dd>
+            </dl>
+        </div>
+    </section>
 
-        <article class="settings-card">
-            <h3>Conta</h3>
-            <p>Resumo da conta ativa no Radar Local IA.</p>
-            <label>Plano<input type="text" value="{{ current_user.plano }}" readonly></label>
-            <label>Status<input type="text" value="Ativo" readonly></label>
-        </article>
-
-        <article class="settings-card">
-            <h3>Preferências</h3>
-            <p>Configurações visuais e operacionais iniciais.</p>
-            <label>Tema<input type="text" value="Premium Terracota" readonly></label>
-            <label>Notificações<input type="text" value="Ativadas" readonly></label>
-        </article>
-
-        <article class="settings-card">
-            <h3>Integrações</h3>
-            <p>Gerencie importação de base e fontes externas.</p>
-            <div class="form-actions">
-                <a class="secondary-button" href="{{ url_for('importar_apify') }}">Integrações e importação</a>
+    <section class="card" aria-labelledby="cfgFontes">
+        <div class="card-head">
+            <h2 id="cfgFontes">Fontes de captura</h2>
+            <p>As chaves ficam no servidor e nunca aparecem aqui.</p>
+        </div>
+        <div class="source">
+            <div class="source-main">
+                <strong>Google Places {{ estado(fontes.google_places) }}</strong>
+                <span>Busca de empresas na tela Capturar leads. Usa a conta Apify.</span>
             </div>
-        </article>
-
-        <article class="settings-card">
-            <h3>Segurança</h3>
-            <p>Proteção da sessão e acesso à plataforma.</p>
-            <div class="form-actions">
-                <a class="ghost-button" href="{{ url_for('logout') }}">Encerrar sessão</a>
+            <button class="btn js-test-source" type="button" {% if not fontes.google_places %}disabled{% endif %}>Testar conexão</button>
+            <div class="notice source-result hidden" role="status" aria-live="polite"></div>
+        </div>
+        <div class="source">
+            <div class="source-main">
+                <strong>Apify {{ estado(fontes.apify) }}</strong>
+                <span>Importação de planilhas exportadas do Apify.</span>
             </div>
-        </article>
+            <a class="btn" href="{{ url_for('importar_apify') }}">Importar CSV</a>
+            <button class="btn js-test-source" type="button" {% if not fontes.apify %}disabled{% endif %}>Testar conexão</button>
+            <div class="notice source-result hidden" role="status" aria-live="polite"></div>
+        </div>
+        {% if not fontes.google_places or not fontes.apify %}
+        <div class="source">
+            <p class="muted">Para configurar uma fonte, o administrador do servidor precisa cadastrar a chave de acesso no ambiente da aplicação.</p>
+        </div>
+        {% endif %}
+    </section>
 
-        <article class="settings-card">
-            <h3>Plano</h3>
-            <p>Informações comerciais e capacidade operacional.</p>
-            <label>Limite atual<input type="text" value="Conforme plano {{ current_user.plano }}" readonly></label>
-            <label>Renovação<input type="text" value="Mensal" readonly></label>
-        </article>
-    </div>
-</section>
+    <section class="card" aria-labelledby="cfgAnalises">
+        <div class="card-head"><h2 id="cfgAnalises">Análises de laudo</h2></div>
+        <div class="card-body usage">
+            <div class="usage-top">
+                <span>{{ analises.usadas }} de {{ analises.limite }} análises usadas</span>
+                <span class="muted">{{ analises.pct }}%</span>
+            </div>
+            <span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ analises.limite }}" aria-valuenow="{{ analises.usadas }}" aria-label="Análises usadas"><i style="width: {{ analises.pct }}%"></i></span>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="cfgSeguranca">
+        <div class="card-head"><h2 id="cfgSeguranca">Segurança</h2></div>
+        <div class="card-body">
+            <p class="muted">Sua senha é guardada de forma protegida e não é exibida em nenhuma tela.</p>
+            <div class="form-actions">
+                <a class="btn" href="{{ url_for('logout') }}">{{ icon('logout', 16) }}<span>Encerrar sessão</span></a>
+            </div>
+        </div>
+    </section>
+</div>
 {% endblock %}
